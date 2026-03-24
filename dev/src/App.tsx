@@ -73,16 +73,20 @@ const App: React.FC = () => {
   const [selectedPlant, setSelectedPlant] = useState<PlantType>('lingxu');
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [activeTab, setActiveTab] = useState<'FARM' | 'LAB' | 'QUOTA'>('LAB');
-  const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({});
+  const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({
+    'lingxu-seed': 5
+  });
   const [completedBlueprints, setCompletedBlueprints] = useState<string[]>([]);
 
   // Discovery system: Starts with only Longxu Seed
   const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['lingxu-seed']);
   
   const unlockedCrops = useMemo(() => {
-    // Return discovered crops that the player currently has in inventory or the starter seed
-    return discoveredCrops;
-  }, [discoveredCrops]);
+    // Return discovered crops and anything currently in inventory
+    const inInv = Object.keys(inventory).filter(k => (inventory[k as PlantType] || 0) > 0) as PlantType[];
+    const all = Array.from(new Set([...discoveredCrops, ...inInv]));
+    return all;
+  }, [discoveredCrops, inventory]);
 
   // Adjacency Bonuses Logic
   const adjacencyBonuses = useMemo(() => {
@@ -172,6 +176,12 @@ const App: React.FC = () => {
     const tile = tiles.find(t => t.id === id);
     if (!tile) return;
 
+    // Check if we have the seed
+    if ((inventory[selectedPlant] || 0) <= 0) {
+      alert(`你没有足够的【${PLANTS[selectedPlant].name}】。`);
+      return;
+    }
+
     let finalPlant = selectedPlant;
     
     // Evolution Rule 1: Lingxu Seed becomes Lingxu plant
@@ -183,6 +193,23 @@ const App: React.FC = () => {
     if (selectedPlant === 'yuzhu-seed') {
       finalPlant = 'yuzhu-transforming';
     }
+
+    // New Evolution Seeds
+    if (selectedPlant === 'white-jade-rice-seed') {
+      finalPlant = 'white-jade-rice';
+    }
+    if (selectedPlant === 'suet-jade-rice-seed') {
+      finalPlant = 'suet-jade-rice';
+    }
+    if (selectedPlant === 'dragon-scale-rice-seed') {
+      finalPlant = 'dragon-scale-rice';
+    }
+
+    // Deduct seed
+    setInventory(inv => ({
+      ...inv,
+      [selectedPlant]: (inv[selectedPlant] || 1) - 1
+    }));
 
     setTiles(prev => prev.map(t => 
       t.id === id ? { ...t, plantType: finalPlant, growth: 0 } : t
@@ -198,11 +225,13 @@ const App: React.FC = () => {
 
       // Special Harvest Logic for Evolution
       if (plantType === 'lingxu') {
+        // ALWAYS get the crop itself
+        setInventory(inv => ({ ...inv, 'lingxu': (inv['lingxu'] || 0) + 1 }));
+
         if (tile.soilType === 'WET') {
-          // Success: Grant Yuzhu Seed and Lingxu plant item
+          // Success: Grant Yuzhu Seed
           setInventory(inv => ({ 
             ...inv, 
-            'lingxu': (inv['lingxu'] || 0) + 1,
             'yuzhu-seed': (inv['yuzhu-seed'] || 0) + 1 
           }));
           setDiscoveredCrops(prev => {
@@ -211,15 +240,22 @@ const App: React.FC = () => {
             }
             return prev;
           });
-          alert("收获成功！龙须草在湿润土壤中结出了【玉珠草种子】。现在可以种植玉珠草了。");
+          alert("收获成功！龙须草在湿润土壤中结出了【玉珠草种子】。现在可以进行玉珠草演化了。");
         } else {
-          setInventory(inv => ({ ...inv, 'lingxu': (inv['lingxu'] || 0) + 1 }));
           alert("收获了龙须草。看来非湿润土壤无法让它结出进化的种子。");
         }
       } else {
-        // Normal harvest for evolved rice
+        // Normal harvest for other crops
         setInventory(inv => ({ ...inv, [plantType]: (inv[plantType] || 0) + 1 }));
       }
+
+      // Add the harvested crop to discovered crops so it shows up as a "card"
+      setDiscoveredCrops(prev => {
+        if (!prev.includes(plantType)) {
+          return [...prev, plantType];
+        }
+        return prev;
+      });
 
       setFp(f => f + Math.floor(price));
       
@@ -292,16 +328,31 @@ const App: React.FC = () => {
       setElementInventory(prev => ({ ...prev, [invKey]: prev[invKey] - 1 }));
       
       let nextPlant: PlantType = 'white-jade-rice';
-      if (elementType === 'SUN') nextPlant = 'white-jade-rice'; // Yellow/Sun -> White Jade
-      if (elementType === 'FIRE') nextPlant = 'suet-jade-rice'; // Red/Fire -> Suet Jade
-      if (elementType === 'WATER') nextPlant = 'dragon-scale-rice'; // Blue/Water -> Dragon Scale
+      if (elementType === 'SUN') nextPlant = 'white-jade-rice'; // 金 -> 白玉灵稻
+      if (elementType === 'FIRE') nextPlant = 'suet-jade-rice'; // 木 -> 羊脂玉稻
+      if (elementType === 'WATER') nextPlant = 'dragon-scale-rice'; // 水 -> 龙鳞稻
 
       setTiles(prev => prev.map(t => 
         t.id === id ? { ...t, plantType: nextPlant, growth: 0 } : t
       ));
-      alert(`注入了${elementType}元素！作物开始向【${PLANTS[nextPlant].name}】演化。`);
+      alert(`注入了${elementType}元素！作物成功演化为【${PLANTS[nextPlant].name}】。`);
     } else {
       alert(`你没有足够的${elementType}元素。去捕捉地图上的灵生物吧！`);
+    }
+  };
+
+  const handlePurchase = (packId: string, cost: number) => {
+    if (fp < cost) {
+      alert('宗门贡献不足！');
+      return;
+    }
+    
+    if (packId === 'outer') {
+      setFp(prev => prev - cost);
+      setInventory(inv => ({ ...inv, 'lingxu-seed': (inv['lingxu-seed'] || 0) + 5 }));
+      alert('成功领取：外门弟子布袋（龙须草种子 x5）');
+    } else {
+      alert('该物资包暂未开放申请。');
     }
   };
 
@@ -422,7 +473,12 @@ const App: React.FC = () => {
                   <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner group-hover:scale-110 transition-transform">📦</div>
                   <h3 className="text-sm font-black text-white mb-2 uppercase">{pack.name}</h3>
                   <div className="text-xl font-black text-yellow-500 mb-6">{pack.cost} <span className="text-[10px] opacity-60">FP</span></div>
-                  <button className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg transition-all active:scale-95">提交申请</button>
+                  <button 
+                    onClick={() => handlePurchase(pack.id, pack.cost)}
+                    className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg transition-all active:scale-95"
+                  >
+                    提交申请
+                  </button>
                 </div>
               ))}
             </div>
@@ -448,6 +504,7 @@ const App: React.FC = () => {
                 ${selectedPlant === type ? 'border-blue-400 -translate-y-4 bg-slate-800 shadow-2xl' : 'border-white/5 bg-slate-800/40 shadow-inner'}
               `}
             >
+              <div className="absolute top-3 right-4 text-[10px] font-black text-blue-400">{inventory[type] || 0}</div>
               <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category}</div>
               <div className="text-xl">{PLANTS[type].icon}</div>
               <div className="text-xs font-black text-white leading-tight">{PLANTS[type].name}</div>

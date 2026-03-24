@@ -6,7 +6,9 @@ export type PlantType =
   | 'hongguo' | 'spirit-ginseng'
   | 'lantern' | 'spirit-pepper'
   | 'cairong' | 'spirit-cotton'
-  | 'lingxu-seed' | 'yuzhu-seed' | 'yuzhu-transforming' | 'white-jade-rice' | 'suet-jade-rice' | 'dragon-scale-rice' | 'unknown-seed';
+  | 'lingxu-seed' | 'yuzhu-seed' | 'yuzhu-transforming' 
+  | 'white-jade-rice-seed' | 'suet-jade-rice-seed' | 'dragon-scale-rice-seed'
+  | 'white-jade-rice' | 'suet-jade-rice' | 'dragon-scale-rice' | 'unknown-seed';
 
 export type SoilType = 'WET' | 'DRY' | 'RICH' | 'ROCKY';
 
@@ -246,6 +248,39 @@ export const PLANTS: Record<PlantType, PlantInfo> = {
     educationalDescription: '玉珠草种子能够响应元素力量，产生各种形态的变异。',
     rewardText: '进入元素演化阶段。',
     icon: '🧬', pattern: 'seed-yuzhu-pattern', basePrice: 50
+  },
+  'white-jade-rice-seed': {
+    id: 'white-jade-rice-seed',
+    name: '白玉灵稻种子',
+    scientificName: 'Semen Oryzae albae',
+    category: '粮食',
+    waterReq: 0, sunReq: 0, fertReq: 0,
+    description: '演化而来的白玉灵稻种子。',
+    educationalDescription: '白玉灵稻种子，可以直接种出白玉灵稻。',
+    rewardText: '开启白玉灵稻种植。',
+    icon: '🧪', pattern: 'seed-white-pattern', basePrice: 20
+  },
+  'suet-jade-rice-seed': {
+    id: 'suet-jade-rice-seed',
+    name: '羊脂玉稻种子',
+    scientificName: 'Semen Oryzae lanigerae',
+    category: '粮食',
+    waterReq: 0, sunReq: 0, fertReq: 0,
+    description: '演化而来的羊脂玉稻种子。',
+    educationalDescription: '羊脂玉稻种子，可以直接种出羊脂玉稻。',
+    rewardText: '开启羊脂玉稻种植。',
+    icon: '🧪', pattern: 'seed-suet-pattern', basePrice: 40
+  },
+  'dragon-scale-rice-seed': {
+    id: 'dragon-scale-rice-seed',
+    name: '龙鳞稻种子',
+    scientificName: 'Semen Oryzae draconis',
+    category: '粮食',
+    waterReq: 0, sunReq: 0, fertReq: 0,
+    description: '演化而来的龙鳞稻种子。',
+    educationalDescription: '龙鳞稻种子，可以直接种出龙鳞稻。',
+    rewardText: '开启龙鳞稻种植。',
+    icon: '🧪', pattern: 'seed-dragon-pattern', basePrice: 100
   },
   'yuzhu-transforming': {
     id: 'yuzhu-transforming',
