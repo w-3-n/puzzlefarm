@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import './App.css';
 import { 
   type PlantType, 
@@ -9,7 +9,9 @@ import {
   type CreatureType,
   type WeatherType,
   type TileData,
-  type Blueprint
+  type Blueprint,
+  type SoilType,
+  type TileState
 } from './types';
 import { BLUEPRINTS } from './data';
 import Tile from './components/Tile';
@@ -71,7 +73,6 @@ const App: React.FC = () => {
   const [selectedPlant, setSelectedPlant] = useState<PlantType>('lingxu');
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [activeTab, setActiveTab] = useState<'FARM' | 'LAB' | 'QUOTA'>('LAB');
-  const [showArchives, setShowArchives] = useState(false);
   const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({});
   const [completedBlueprints, setCompletedBlueprints] = useState<string[]>([]);
 

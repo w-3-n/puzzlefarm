@@ -6,7 +6,7 @@ export type PlantType =
   | 'hongguo' | 'spirit-ginseng'
   | 'lantern' | 'spirit-pepper'
   | 'cairong' | 'spirit-cotton'
-  | 'lingxu-seed' | 'yuzhu-seed' | 'yuzhu-transforming' | 'white-jade-rice' | 'suet-jade-rice' | 'dragon-scale-rice';
+  | 'lingxu-seed' | 'yuzhu-seed' | 'yuzhu-transforming' | 'white-jade-rice' | 'suet-jade-rice' | 'dragon-scale-rice' | 'unknown-seed';
 
 export type SoilType = 'WET' | 'DRY' | 'RICH' | 'ROCKY';
 
