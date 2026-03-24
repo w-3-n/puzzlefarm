@@ -1,0 +1,504 @@
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import './App.css';
+import { 
+  type PlantType, 
+  PLANTS, 
+  type LegacyTileState, 
+  type GameResources, 
+  type ElementInventory, 
+  type CreatureType,
+  type WeatherType,
+  type TileData,
+  type Blueprint
+} from './types';
+import { BLUEPRINTS } from './data';
+import Tile from './components/Tile';
+import confetti from 'canvas-confetti';
+
+const ROWS = 4;
+const COLS = 4;
+const GRID_SIZE = ROWS * COLS;
+const MAX_RESOURCE = 100;
+
+const PACKS = [
+  { id: 'outer', name: '外门弟子布袋', cost: 30, limit: 5 },
+  { id: 'inner', name: '内门弟子木箱', cost: 100, limit: 3 },
+  { id: 'booster', name: '地形补充包', cost: 150, limit: 2 },
+  { id: 'elder', name: '核心长老私藏', cost: 400, limit: 1 }
+];
+
+const App: React.FC = () => {
+  // Game States
+  const [tiles, setTiles] = useState<LegacyTileState[]>(
+    Array.from({ length: GRID_SIZE }, (_, i) => {
+      const x = i % COLS;
+      const y = Math.floor(i / COLS);
+      let soilType: SoilType = 'RICH';
+      
+      if (x < 2 && y < 2) soilType = 'WET';
+      else if (x >= 2 && y < 2) soilType = 'DRY';
+      else if (x < 2 && y >= 2) soilType = 'RICH';
+      else if (x >= 2 && y >= 2) soilType = 'ROCKY';
+
+      return {
+        id: i,
+        x,
+        y,
+        soilType,
+        plantType: null,
+        growth: 0,
+        isLocked: false,
+        hasCreature: false,
+      };
+    })
+  );
+
+  const [resources, setResources] = useState<GameResources>({
+    water: 80,
+    sunlight: 80,
+    fertilizer: 50,
+  });
+
+  const [elementInventory, setElementInventory] = useState<ElementInventory>({
+    water: 0,
+    sun: 0,
+    fire: 0,
+  });
+
+  const [fp, setFp] = useState(500);
+  const [kp, setKp] = useState(0);
+  const [weather, setWeather] = useState<WeatherType>('SUNNY');
+  const [selectedPlant, setSelectedPlant] = useState<PlantType>('lingxu');
+  const [isGameFinished, setIsGameFinished] = useState(false);
+  const [activeTab, setActiveTab] = useState<'FARM' | 'LAB' | 'QUOTA'>('LAB');
+  const [showArchives, setShowArchives] = useState(false);
+  const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({});
+  const [completedBlueprints, setCompletedBlueprints] = useState<string[]>([]);
+
+  // Discovery system: Starts with only Longxu Seed
+  const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['lingxu-seed']);
+  
+  const unlockedCrops = useMemo(() => {
+    // Return discovered crops that the player currently has in inventory or the starter seed
+    return discoveredCrops;
+  }, [discoveredCrops]);
+
+  // Adjacency Bonuses Logic
+  const adjacencyBonuses = useMemo(() => {
+    let regenMultiplier = 1;
+    let waterReduction = 0;
+
+    tiles.forEach(tile => {
+      if (!tile.plantType) return;
+      const neighbors = getNeighbors(tile.id, tiles);
+      neighbors.forEach(n => {
+        if (!n.plantType) return;
+        if (
+          (tile.plantType === 'lingxu' && n.plantType === 'lingrong') ||
+          (tile.plantType === 'lingrong' && n.plantType === 'lingxu')
+        ) {
+          regenMultiplier += 0.1; 
+        }
+      });
+    });
+    return { regenMultiplier, waterReduction };
+  }, [tiles]);
+
+  // Resource regeneration
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setResources(prev => ({
+        water: Math.min(MAX_RESOURCE, prev.water + 1.5 * adjacencyBonuses.regenMultiplier),
+        sunlight: Math.min(MAX_RESOURCE, prev.sunlight + 1.5 * adjacencyBonuses.regenMultiplier),
+        fertilizer: Math.min(MAX_RESOURCE, prev.fertilizer + 0.8 * adjacencyBonuses.regenMultiplier),
+      }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [adjacencyBonuses]);
+
+  // Passive Time-Based Growth
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTiles(prev => prev.map(t => {
+        if (t.plantType && !t.isLocked) {
+          // Accelerated growth: 50% per second
+          let growthIncr = 50; 
+
+          const newGrowth = Math.min(100, t.growth + growthIncr);
+          return { ...t, growth: newGrowth, isLocked: newGrowth === 100 };
+        }
+        return t;
+      }));
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [weather]);
+
+  // Creature Spawning logic
+  useEffect(() => {
+    let timeoutId: any;
+    const spawn = () => {
+      setTiles(currentTiles => {
+        const numCreatures = currentTiles.filter(t => t.hasCreature).length;
+        if (numCreatures < 3) {
+          const emptyTiles = currentTiles.filter(t => !t.hasCreature);
+          if (emptyTiles.length > 0) {
+            const randomIdx = Math.floor(Math.random() * emptyTiles.length);
+            const targetId = emptyTiles[randomIdx].id;
+            const types: CreatureType[] = ['WATER', 'SUN', 'FIRE'];
+            const randomType = types[Math.floor(Math.random() * types.length)];
+            const spawnTime = Date.now();
+            
+            return currentTiles.map(t => 
+              t.id === targetId ? { 
+                ...t, 
+                hasCreature: true, 
+                creatureType: randomType,
+                lastSpawnedAt: spawnTime
+              } : t
+            );
+          }
+        }
+        return currentTiles;
+      });
+      const nextTime = 2000 + Math.random() * 3000;
+      timeoutId = setTimeout(spawn, nextTime);
+    };
+    timeoutId = setTimeout(spawn, 1000);
+    return () => clearTimeout(timeoutId);
+  }, []);
+
+  const handlePlant = (id: number) => {
+    const tile = tiles.find(t => t.id === id);
+    if (!tile) return;
+
+    let finalPlant = selectedPlant;
+    
+    // Evolution Rule 1: Lingxu Seed becomes Lingxu plant
+    if (selectedPlant === 'lingxu-seed') {
+      finalPlant = 'lingxu';
+    }
+
+    // Evolution Rule 2: Yuzhu Seed becomes Transforming state immediately
+    if (selectedPlant === 'yuzhu-seed') {
+      finalPlant = 'yuzhu-transforming';
+    }
+
+    setTiles(prev => prev.map(t => 
+      t.id === id ? { ...t, plantType: finalPlant, growth: 0 } : t
+    ));
+  };
+
+  const handleHarvest = (id: number) => {
+    const tile = tiles.find(t => t.id === id);
+    if (tile && tile.plantType) {
+      const plantType = tile.plantType;
+      const plant = PLANTS[plantType];
+      let price = plant.basePrice;
+
+      // Special Harvest Logic for Evolution
+      if (plantType === 'lingxu') {
+        if (tile.soilType === 'WET') {
+          // Success: Grant Yuzhu Seed and Lingxu plant item
+          setInventory(inv => ({ 
+            ...inv, 
+            'lingxu': (inv['lingxu'] || 0) + 1,
+            'yuzhu-seed': (inv['yuzhu-seed'] || 0) + 1 
+          }));
+          setDiscoveredCrops(prev => {
+            if (!prev.includes('yuzhu-seed')) {
+              return [...prev, 'yuzhu-seed'];
+            }
+            return prev;
+          });
+          alert("收获成功！龙须草在湿润土壤中结出了【玉珠草种子】。现在可以种植玉珠草了。");
+        } else {
+          setInventory(inv => ({ ...inv, 'lingxu': (inv['lingxu'] || 0) + 1 }));
+          alert("收获了龙须草。看来非湿润土壤无法让它结出进化的种子。");
+        }
+      } else {
+        // Normal harvest for evolved rice
+        setInventory(inv => ({ ...inv, [plantType]: (inv[plantType] || 0) + 1 }));
+      }
+
+      setFp(f => f + Math.floor(price));
+      
+      setTiles(prev => prev.map(t => 
+        t.id === id ? { ...t, plantType: null, growth: 0, isLocked: false } : t
+      ));
+    }
+  };
+
+  const handleCollectCreature = useCallback((id: number, type: string) => {
+    setTiles(prev => prev.map(t => t.id === id ? { ...t, hasCreature: false } : t));
+    setElementInventory(prev => ({
+      ...prev,
+      [type.toLowerCase()]: prev[type.toLowerCase() as keyof ElementInventory] + 1
+    }));
+    
+    let kpGain = 10;
+    if (tiles.some(t => t.plantType === 'spirit-millet')) kpGain *= 1.1;
+    if (tiles.some(t => t.plantType === 'feiling')) kpGain *= 1.15;
+    if (tiles.some(t => t.plantType === 'hongguo')) kpGain *= 1.2;
+
+    setKp(k => k + Math.floor(kpGain));
+    setFp(f => f + 10);
+  }, [tiles, inventory]);
+
+  const handleCompleteBlueprint = (blueprint: Blueprint) => {
+    // Check if player has all required crops
+    const hasAll = blueprint.requiredCrops.every(crop => (inventory[crop] || 0) > 0);
+    
+    if (hasAll) {
+      setInventory(prev => {
+        const next = { ...prev };
+        blueprint.requiredCrops.forEach(crop => {
+          next[crop] = (next[crop] || 1) - 1;
+        });
+        return next;
+      });
+      setKp(prev => prev + blueprint.rewardKP);
+      setCompletedBlueprints(prev => [...prev, blueprint.id]);
+      
+      confetti({
+        particleCount: 150,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+
+      alert(`成功完成拼图: ${blueprint.name}！获得了 ${blueprint.rewardKP} 知识点。`);
+    } else {
+      alert("还没凑齐拼图所需的作物呢，去 Mirror Earth 收集吧！");
+    }
+  };
+
+  useEffect(() => {
+    if (tiles.length > 0 && tiles.every(t => t.growth === 100 && t.plantType) && !isGameFinished) {
+      setIsGameFinished(true);
+      setTimeout(() => {
+        confetti({
+          particleCount: 200,
+          spread: 90,
+          origin: { y: 0.5 },
+          colors: ['#9B59B6', '#F1C40F', '#27AE60', '#D35400']
+        });
+      }, 500);
+    }
+  }, [tiles, isGameFinished]);
+
+  const handleInfuseElement = (id: number, elementType: CreatureType) => {
+    const invKey = elementType.toLowerCase() as keyof ElementInventory;
+    if (elementInventory[invKey] > 0) {
+      setElementInventory(prev => ({ ...prev, [invKey]: prev[invKey] - 1 }));
+      
+      let nextPlant: PlantType = 'white-jade-rice';
+      if (elementType === 'SUN') nextPlant = 'white-jade-rice'; // Yellow/Sun -> White Jade
+      if (elementType === 'FIRE') nextPlant = 'suet-jade-rice'; // Red/Fire -> Suet Jade
+      if (elementType === 'WATER') nextPlant = 'dragon-scale-rice'; // Blue/Water -> Dragon Scale
+
+      setTiles(prev => prev.map(t => 
+        t.id === id ? { ...t, plantType: nextPlant, growth: 0 } : t
+      ));
+      alert(`注入了${elementType}元素！作物开始向【${PLANTS[nextPlant].name}】演化。`);
+    } else {
+      alert(`你没有足够的${elementType}元素。去捕捉地图上的灵生物吧！`);
+    }
+  };
+
+  const cycleWeather = () => {
+    const weathers: WeatherType[] = ['SUNNY', 'RAINY', 'STORMY', 'WINDY'];
+    const idx = weathers.indexOf(weather);
+    setWeather(weathers[(idx + 1) % weathers.length]);
+  };
+
+  return (
+    <div className="flex flex-col h-screen overflow-hidden text-sm bg-slate-950 font-sans select-none">
+      {/* Header */}
+      <header className="flex justify-between items-center px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 z-10">
+        <div className="flex space-x-8">
+          <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black">宗门贡献</span><span className="text-xl font-black text-yellow-500">{fp}</span></div>
+          <div className="flex flex-col"><span className="text-[10px] text-slate-500 uppercase font-black">知识点</span><span className="text-xl font-black text-blue-400">{kp}</span></div>
+        </div>
+        <div className="flex items-center space-x-4">
+          <nav className="flex bg-slate-800 rounded-full p-1 border border-slate-700 shadow-inner">
+            {['FARM', 'LAB', 'QUOTA'].map(tab => (
+              <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>{tab === 'FARM' ? 'Mirror Earth' : tab === 'LAB' ? 'Brick Farm' : '物资申领'}</button>
+            ))}
+          </nav>
+          <button onClick={cycleWeather} className={`px-6 py-2 rounded-full border border-slate-700 text-xs font-black uppercase transition-all bg-slate-800/50 ${weather === 'SUNNY' ? 'text-orange-400' : 'text-blue-400'}`}>天气: {weather}</button>
+        </div>
+      </header>
+
+      <main className="flex flex-1 overflow-hidden relative">
+        {activeTab === 'FARM' && (
+          <section className="flex-1 p-8 overflow-y-auto custom-scrollbar flex items-center justify-center">
+            <div className="grid grid-cols-4 gap-4 p-8 rounded-[2.5rem] border-2 border-slate-800 bg-slate-900/40 shadow-2xl">
+              {tiles.map(tile => {
+                let state: TileState = 'EMPTY';
+                if (tile.plantType === 'yuzhu-transforming') state = 'TRANSFORMING';
+                else if (tile.plantType) state = tile.growth < 100 ? 'PLANTED' : 'MATURE';
+
+                const tileData: TileData = {
+                  id: tile.id,
+                  x: tile.x,
+                  y: tile.y,
+                  state,
+                  soilType: tile.soilType,
+                  cropType: tile.plantType,
+                  progress: tile.growth,
+                  hasCreature: tile.hasCreature,
+                  creatureType: tile.creatureType,
+                  lastSpawnedAt: tile.lastSpawnedAt
+                };
+                return (
+                  <Tile 
+                    key={tile.id} 
+                    data={tileData}
+                    onPlant={handlePlant}
+                    onHarvest={handleHarvest}
+                    onCollectCreature={handleCollectCreature}
+                    onInfuse={handleInfuseElement}
+                  />
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'LAB' && (
+          <section className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+            <h2 className="text-2xl font-black text-white uppercase tracking-[0.2em] mb-8 text-center">Brick Farm <span className="text-blue-500">BLUEPRINTS</span></h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
+              {BLUEPRINTS.map(bp => {
+                const isCompleted = completedBlueprints.includes(bp.id);
+                const hasAll = bp.requiredCrops.every(crop => (inventory[crop] || 0) > 0);
+
+                return (
+                  <div key={bp.id} className={`p-8 rounded-[2.5rem] border-2 transition-all relative overflow-hidden ${isCompleted ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-slate-800 bg-slate-900/40 hover:border-blue-500/30'}`}>
+                    {isCompleted && <div className="absolute top-4 right-4 text-emerald-500 font-black uppercase text-[10px] tracking-widest">已完成</div>}
+                    <h3 className="text-xl font-black text-white mb-4">{bp.name}</h3>
+                    <p className="text-xs text-slate-400 mb-6 leading-relaxed">{bp.description}</p>
+                    
+                    <div className="space-y-4 mb-8">
+                      <div className="text-[10px] font-black text-slate-500 uppercase tracking-widest">所需拼图碎片：</div>
+                      <div className="flex flex-wrap gap-3">
+                        {bp.requiredCrops.map(crop => (
+                          <div key={crop} className={`flex items-center space-x-2 px-3 py-1.5 rounded-full border ${inventory[crop] ? 'border-blue-500/50 bg-blue-500/10 text-blue-400' : 'border-slate-800 bg-slate-950 text-slate-600'}`}>
+                            <span className="text-lg">{PLANTS[crop].icon}</span>
+                            <span className="text-[10px] font-black">{PLANTS[crop].name} {inventory[crop] ? `(${inventory[crop]})` : '(0)'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {!isCompleted && (
+                      <button 
+                        onClick={() => handleCompleteBlueprint(bp)}
+                        className={`w-full py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all ${hasAll ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg' : 'bg-slate-800 text-slate-500 cursor-not-allowed'}`}
+                      >
+                        {hasAll ? '拼入拼图并解锁知识' : '碎片不足，前往探索'}
+                      </button>
+                    )}
+                    
+                    {isCompleted && (
+                      <div className="mt-4 p-4 bg-emerald-500/10 rounded-xl border border-emerald-500/20">
+                        <div className="text-[10px] font-black text-emerald-400 uppercase mb-1">已解锁的知识：</div>
+                        <p className="text-[11px] text-slate-300 italic">“{PLANTS[bp.requiredCrops[0]].educationalDescription}”</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
+
+        {activeTab === 'QUOTA' && (
+          <section className="flex-1 p-12 overflow-y-auto custom-scrollbar">
+            <h2 className="text-2xl font-black text-white uppercase tracking-[0.2em] mb-12 text-center">物资申领系统 <span className="text-blue-500">QUOTA SYSTEM</span></h2>
+            <div className="grid grid-cols-4 gap-8 max-w-6xl mx-auto">
+              {PACKS.map(pack => (
+                <div key={pack.id} className="bg-slate-900 border border-slate-800 rounded-[2.5rem] p-8 flex flex-col items-center text-center group hover:border-blue-500/50 transition-all shadow-lg">
+                  <div className="w-16 h-16 bg-slate-800 rounded-full flex items-center justify-center text-2xl mb-6 shadow-inner group-hover:scale-110 transition-transform">📦</div>
+                  <h3 className="text-sm font-black text-white mb-2 uppercase">{pack.name}</h3>
+                  <div className="text-xl font-black text-yellow-500 mb-6">{pack.cost} <span className="text-[10px] opacity-60">FP</span></div>
+                  <button className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-[10px] shadow-lg transition-all active:scale-95">提交申请</button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
+      </main>
+
+      {/* Footer / Action Bar */}
+      <footer className="h-44 bg-slate-900/95 backdrop-blur-xl border-t border-white/5 flex p-6 space-x-8 z-10 relative">
+        <div className="flex-1 flex space-x-5 overflow-x-auto custom-scrollbar pb-2 items-center pr-10">
+          <div className="flex flex-col space-y-2 mr-4 min-w-[150px]">
+             <div className="text-[9px] font-black text-blue-400 uppercase">资源 & 元素 RESOURCES</div>
+             <ResourceMini label="💧" value={resources.water} color="bg-blue-500" count={elementInventory.water} />
+             <ResourceMini label="☀️" value={resources.sunlight} color="bg-yellow-500" count={elementInventory.sun} />
+             <ResourceMini label="🧪" value={resources.fertilizer} color="bg-green-500" count={elementInventory.fire} />
+          </div>
+
+          <div className="w-[2px] h-20 bg-white/5 rounded-full mx-2 shrink-0"></div>
+
+          {unlockedCrops.map(type => (
+            <div key={type} onClick={() => setSelectedPlant(type)}
+              className={`min-w-[130px] h-32 rounded-[2rem] border-2 p-5 cursor-pointer transition-all flex flex-col justify-between relative group
+                ${selectedPlant === type ? 'border-blue-400 -translate-y-4 bg-slate-800 shadow-2xl' : 'border-white/5 bg-slate-800/40 shadow-inner'}
+              `}
+            >
+              <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category}</div>
+              <div className="text-xl">{PLANTS[type].icon}</div>
+              <div className="text-xs font-black text-white leading-tight">{PLANTS[type].name}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="w-64 bg-yellow-500/5 rounded-[2.5rem] border border-yellow-500/20 p-6 flex flex-col items-center justify-center shadow-inner">
+           <div className="text-[10px] font-black text-yellow-600 uppercase tracking-[0.2em] mb-2">宗门贡献 <span className="opacity-50">POINTS</span></div>
+           <div className="text-3xl font-black text-yellow-500 tracking-tighter">$ {fp}</div>
+        </div>
+      </footer>
+
+      {/* Completion Modal */}
+      {isGameFinished && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl">
+           <div className="text-center p-12 bg-slate-900 border border-white/10 rounded-[3.5rem] shadow-2xl">
+              <h1 className="text-5xl font-black text-white mb-4 uppercase tracking-tighter">Masterpiece Complete</h1>
+              <p className="text-slate-400 mb-10 text-lg">Your botanical tapestry is preserved.</p>
+              <button 
+                className="px-10 py-4 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl font-black uppercase text-sm shadow-xl transition-all active:scale-95" 
+                onClick={() => window.location.reload()}
+              >
+                RESTART JOURNEY
+              </button>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ResourceMini({ label, value, color, count }: { label: string, value: number, color: string, count: number }) {
+  return (
+    <div className="flex items-center space-x-3">
+      <div className="flex flex-col items-center min-w-[24px]">
+        <span className="text-[10px] grayscale brightness-150">{label}</span>
+        <span className="text-[8px] font-bold text-white mt-0.5">{count}</span>
+      </div>
+      <div className="flex-1 h-1.5 bg-slate-800 rounded-full overflow-hidden w-24">
+        <div className={`h-full ${color}`} style={{ width: `${value}%` }}></div>
+      </div>
+    </div>
+  );
+}
+
+function getNeighbors(id: number, tiles: LegacyTileState[]) {
+  const tile = tiles[id];
+  return tiles.filter(t => 
+    (Math.abs(t.x - tile.x) === 1 && t.y === tile.y) ||
+    (Math.abs(t.y - tile.y) === 1 && t.x === tile.x)
+  );
+}
+
+export default App;

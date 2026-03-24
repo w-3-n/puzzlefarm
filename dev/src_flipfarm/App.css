@@ -1,0 +1,278 @@
+
+:root {
+  --bg-color: #fcf9f2;
+  --panel-bg: #f5f0e1;
+  --accent-color: #8e8d8a;
+  --text-primary: #3d3d3d;
+  --text-secondary: #6e6e6e;
+  --border-color: #d1ccbd;
+  --water-color: #3498db;
+  --sun-color: #f1c40f;
+  --fert-color: #e67e22;
+  --font-serif: 'Cormorant Garamond', serif;
+  --font-sans: 'Inter', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background-color: var(--bg-color);
+  color: var(--text-primary);
+  margin: 0;
+  overflow: hidden;
+}
+
+.game-container {
+  display: flex;
+  width: 100vw;
+  height: 100vh;
+  box-sizing: border-box;
+  padding: 2rem;
+  gap: 2rem;
+  transition: all 1s ease;
+}
+
+.game-container.finished {
+  padding: 0;
+  justify-content: center;
+  align-items: center;
+}
+
+.sidebar {
+  width: 300px;
+  background-color: var(--panel-bg);
+  border: 1px solid var(--border-color);
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.03);
+  transition: opacity 1s ease, transform 1s ease;
+}
+
+.game-container.finished .sidebar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50px);
+}
+
+.main-view {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.grid-container {
+  display: grid;
+  grid-template-columns: repeat(5, 120px);
+  grid-template-rows: repeat(4, 120px);
+  gap: 0px;
+  padding: 10px;
+  background-color: rgba(0,0,0,0.05);
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  transition: all 1s ease;
+}
+
+.game-container.finished .grid-container {
+  border: none;
+  background: none;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.1);
+}
+
+.tile {
+  width: 120px;
+  height: 120px;
+  background-color: #fff;
+  border: 0.5px solid rgba(0,0,0,0.05);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.5s ease;
+}
+
+.tile.low-res {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.tile-add-icon {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  opacity: 0.2;
+  transition: opacity 0.3s;
+}
+
+.tile:hover .tile-add-icon {
+  opacity: 0.6;
+}
+
+.tile-add-icon span {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+/* Master Texture Fragment Logic */
+.texture-fragment {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-size: 600px 480px; 
+  transition: filter 0.8s ease, opacity 0.8s ease;
+}
+
+.lavender-pattern {
+  background-image: radial-gradient(circle, #9B59B6 1px, transparent 1px), 
+                    linear-gradient(45deg, #9B59B622 25%, transparent 25%);
+  background-color: #f3e5f5;
+}
+.sunflower-pattern {
+  background-image: radial-gradient(circle at 50% 50%, #F1C40F 2px, transparent 2px);
+  background-color: #fff9c4;
+}
+.fern-pattern {
+  background-image: repeating-linear-gradient(45deg, #27AE6011, #27AE6011 10px, #27AE6022 10px, #27AE6022 20px);
+  background-color: #e8f5e9;
+}
+.honey-pattern {
+  background-image: radial-gradient(circle, #D35400 1px, transparent 1px);
+  background-color: #fff3e0;
+}
+
+.tile-seedling {
+  font-size: 2rem;
+  z-index: 2;
+  transition: transform 0.3s ease;
+}
+
+.fragment-growing {
+  filter: blur(12px) grayscale(80%);
+  opacity: 0.4;
+}
+
+.tile.locked .texture-fragment {
+  filter: blur(0) grayscale(0);
+  opacity: 1;
+}
+
+.tile.locked::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(135deg, rgba(255,255,255,0.4) 0%, transparent 50%, rgba(255,255,255,0.1) 100%);
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* Progress Bar inside Tile */
+.tile-progress-bar {
+  position: absolute;
+  bottom: 10px;
+  left: 20px;
+  right: 20px;
+  height: 4px;
+  background: rgba(0,0,0,0.1);
+  border-radius: 2px;
+  overflow: hidden;
+  z-index: 4;
+}
+
+.tile-progress-fill {
+  height: 100%;
+  background: var(--text-primary);
+  transition: width 0.3s ease;
+}
+
+/* Seams */
+.seam-north { border-top: 1px solid rgba(0,0,0,0.1); }
+.seam-south { border-bottom: 1px solid rgba(0,0,0,0.1); }
+.seam-east { border-right: 1px solid rgba(0,0,0,0.1); }
+.seam-west { border-left: 1px solid rgba(0,0,0,0.1); }
+
+/* Global UI */
+.title { font-family: var(--font-serif); font-size: 2.2rem; margin: 0; }
+.subtitle { font-family: var(--font-serif); font-style: italic; color: var(--text-secondary); margin-bottom: 0.5rem; }
+.resources { display: flex; flex-direction: column; gap: 0.8rem; }
+.resource-item { display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; font-weight: 500; }
+.resource-bar { height: 6px; background: #e0e0e0; flex: 1; margin-left: 1rem; border-radius: 3px; overflow: hidden; }
+.resource-fill { height: 100%; transition: width 0.3s ease; }
+.resource-fill.water { background: var(--water-color); }
+.resource-fill.sunlight { background: var(--sun-color); }
+.resource-fill.fertilizer { background: var(--fert-color); }
+
+.seed-picker { display: flex; flex-direction: column; gap: 0.5rem; }
+.seed-card { padding: 0.8rem; border: 1px solid var(--border-color); border-radius: 4px; cursor: pointer; background: white; display: flex; align-items: center; gap: 1rem; transition: all 0.2s; }
+.seed-card.active { border-color: #2c3e50; background: #fdfcf8; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.seed-name { font-family: var(--font-serif); font-weight: 600; font-size: 1rem; }
+
+.status-panel {
+  margin-top: auto;
+  padding: 1rem;
+  background: rgba(0,0,0,0.02);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.final-canvas {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background-image: url('https://www.transparenttextures.com/patterns/canvas-orange.png');
+  opacity: 0;
+  pointer-events: none;
+  z-index: 5;
+  transition: opacity 2s ease;
+}
+
+.finished .final-canvas {
+  opacity: 0.2;
+}
+
+.masterpiece-modal {
+  position: fixed;
+  bottom: 8vh;
+  left: 50%;
+  transform: translateX(-50%);
+  background: white;
+  padding: 2rem 4rem;
+  text-align: center;
+  z-index: 10;
+  border-radius: 8px;
+  box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 1s 2s ease;
+}
+
+.finished .masterpiece-modal {
+  opacity: 1;
+  pointer-events: all;
+}
+
+.masterpiece-button {
+  padding: 0.8rem 2rem;
+  margin-top: 1.5rem;
+  background: #3d3d3d;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-family: var(--font-serif);
+  font-size: 1.1rem;
+}

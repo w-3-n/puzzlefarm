@@ -1,0 +1,258 @@
+:root {
+  --brick-color: #3d3d3d;
+  --bg-color: #0f0f0f;
+  --text-color: #f0f0f0;
+  --neon-green: #39ff14;
+  --ui-border: #333;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--bg-color);
+  color: var(--text-color);
+  font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  user-select: none;
+}
+
+.game-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  max-width: 500px;
+  margin: 0 auto;
+  min-height: 100vh;
+}
+
+header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--ui-border);
+  margin-bottom: 20px;
+}
+
+.menu-btn, .save-icon {
+  cursor: pointer;
+  padding: 5px 10px;
+  background: #1a1a1a;
+  border-radius: 4px;
+}
+
+h1 {
+  font-size: 1.2rem;
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+}
+
+.status-bar {
+  display: flex;
+  gap: 15px;
+  align-items: center;
+  font-size: 0.8rem;
+}
+
+.neon-on {
+  color: var(--neon-green);
+  text-shadow: 0 0 8px var(--neon-green);
+}
+
+.inventory-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px;
+  background: #111;
+  padding: 15px;
+  border-radius: 8px;
+  width: 100%;
+}
+
+.inv-group {
+  display: flex;
+  justify-content: space-around;
+  font-size: 1.1rem;
+}
+
+.crop-selector {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 20px;
+}
+
+.crop-btn {
+  background: #222;
+  border: 1px solid #444;
+  padding: 10px 15px;
+  border-radius: 6px;
+  font-size: 1.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.crop-btn.active {
+  background: #444;
+  border-color: var(--neon-green);
+  transform: translateY(-2px);
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  padding: 15px;
+  background: #000;
+  border: 1px solid #222;
+  border-radius: 4px;
+}
+
+.tile {
+  position: relative;
+  width: 90px;
+  height: 90px;
+  cursor: pointer;
+  border-radius: 2px;
+  overflow: visible; /* To see snap points */
+}
+
+.brick-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background-color: var(--brick-color);
+  background-image: 
+    linear-gradient(335deg, #222 23px, transparent 23px),
+    linear-gradient(155deg, #222 23px, transparent 23px),
+    linear-gradient(335deg, #222 23px, transparent 23px),
+    linear-gradient(155deg, #222 23px, transparent 23px);
+  background-size: 46px 46px;
+  background-position: 0 0, 2px 4px, 23px 23px, 25px 27px;
+  border: 1px solid #1a1a1a;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+}
+
+.crop-progress {
+  position: absolute;
+  bottom: 8px;
+  left: 10%;
+  width: 80%;
+  height: 4px;
+  background: #000;
+  border-radius: 2px;
+  z-index: 2;
+}
+
+.progress-bar {
+  height: 100%;
+  background: var(--neon-green);
+}
+
+.mature-crop {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 2.5rem;
+  z-index: 3;
+}
+
+.creature-layer {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 100;
+  pointer-events: none;
+}
+
+.creature {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.kaomoji-part {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 1.6rem;
+  font-weight: bold;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: all 0.2s;
+  z-index: 105;
+}
+
+.kaomoji-part.left-ear {
+  left: -8px; /* Snapping to the left point */
+}
+
+.kaomoji-part.right-ear {
+  right: -8px; /* Snapping to the right point */
+}
+
+.kaomoji-part.face {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%) translateY(-50%);
+  top: 50%;
+  font-size: 1.4rem; /* Adjusted for kaomoji text */
+  white-space: nowrap;
+}
+
+.kaomoji-part.face:hover {
+  transform: translateX(-50%) translateY(-50%) scale(1.4);
+}
+
+.creature-water { color: #0088ff; }
+.creature-sun   { color: #ffea00; }
+.creature-fire  { color: #ff0000; }
+
+.snap-point {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  background: #ff5500;
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 101; /* Behind ears but visible */
+  box-shadow: 0 0 15px #ff5500, 0 0 5px #fff;
+  border: 1px solid #fff;
+}
+
+.left-snap { left: -6px; }
+.right-snap { right: -6px; }
+
+footer {
+  margin-top: auto;
+  padding: 20px 0;
+  width: 100%;
+}
+
+.controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #111;
+  padding: 10px 20px;
+  border-radius: 30px;
+  border: 1px solid var(--ui-border);
+}
+
+.control-btn {
+  background: transparent;
+  border: none;
+  color: #fff;
+  font-size: 1.2rem;
+  cursor: pointer;
+}
+
+.layer-label {
+  font-weight: bold;
+  letter-spacing: 1px;
+  font-size: 0.9rem;
+}
