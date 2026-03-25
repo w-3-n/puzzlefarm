@@ -11,9 +11,10 @@ import {
   type TileData,
   type Blueprint,
   type SoilType,
-  type TileState
+  type TileState,
+  type DiceState
 } from './types';
-import { BLUEPRINTS } from './data';
+import { BLUEPRINTS, UPGRADE_RULES } from './data';
 import Tile from './components/Tile';
 import confetti from 'canvas-confetti';
 
@@ -56,30 +57,39 @@ const App: React.FC = () => {
   );
 
   const [resources, setResources] = useState<GameResources>({
-    water: 80,
-    sunlight: 80,
-    fertilizer: 50,
+    water: 50,
+    sunlight: 50,
+    fertilizer: 50, // This will be used for FIRE/FERT
   });
 
   const [elementInventory, setElementInventory] = useState<ElementInventory>({
-    water: 0,
-    sun: 0,
-    fire: 0,
+    water: 1,
+    sun: 1,
+    fire: 1,
   });
 
   const [fp, setFp] = useState(500);
   const [kp, setKp] = useState(0);
   const [weather, setWeather] = useState<WeatherType>('SUNNY');
-  const [selectedPlant, setSelectedPlant] = useState<PlantType>('lingxu');
+  const [selectedPlant, setSelectedPlant] = useState<PlantType>('baishizhen-seed-0');
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [activeTab, setActiveTab] = useState<'FARM' | 'LAB' | 'QUOTA'>('LAB');
   const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({
-    'lingxu-seed': 5
+    'baishizhen-seed-0': 5
   });
   const [completedBlueprints, setCompletedBlueprints] = useState<string[]>([]);
+  const [diceState, setDiceState] = useState<DiceState>({
+    isVisible: false,
+    value: null,
+    targetTileId: null,
+    baseChance: 0,
+    upgradeTarget: 'baishizhen-seed-1',
+    isRolling: false
+  });
+  const [isBackpackOpen, setIsBackpackOpen] = useState(false);
 
-  // Discovery system: Starts with only Longxu Seed
-  const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['lingxu-seed']);
+  // Discovery system
+  const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['baishizhen-seed-0']);
   
   const unlockedCrops = useMemo(() => {
     // Return discovered crops and anything currently in inventory
@@ -88,38 +98,28 @@ const App: React.FC = () => {
     return all;
   }, [discoveredCrops, inventory]);
 
-  // Adjacency Bonuses Logic
-  const adjacencyBonuses = useMemo(() => {
-    let regenMultiplier = 1;
-    let waterReduction = 0;
-
-    tiles.forEach(tile => {
-      if (!tile.plantType) return;
-      const neighbors = getNeighbors(tile.id, tiles);
-      neighbors.forEach(n => {
-        if (!n.plantType) return;
-        if (
-          (tile.plantType === 'lingxu' && n.plantType === 'lingrong') ||
-          (tile.plantType === 'lingrong' && n.plantType === 'lingxu')
-        ) {
-          regenMultiplier += 0.1; 
-        }
-      });
-    });
-    return { regenMultiplier, waterReduction };
-  }, [tiles]);
-
-  // Resource regeneration
+  // Resource regeneration: Depends on WEATHER
   useEffect(() => {
     const interval = setInterval(() => {
-      setResources(prev => ({
-        water: Math.min(MAX_RESOURCE, prev.water + 1.5 * adjacencyBonuses.regenMultiplier),
-        sunlight: Math.min(MAX_RESOURCE, prev.sunlight + 1.5 * adjacencyBonuses.regenMultiplier),
-        fertilizer: Math.min(MAX_RESOURCE, prev.fertilizer + 0.8 * adjacencyBonuses.regenMultiplier),
-      }));
+      setResources(prev => {
+        let wIncr = 0.2;
+        let sIncr = 0.2;
+        let fIncr = 0.1;
+
+        if (weather === 'RAINY') { wIncr += 2.0; sIncr -= 0.5; }
+        if (weather === 'STORMY') { wIncr += 3.5; sIncr -= 1.0; }
+        if (weather === 'SUNNY') { sIncr += 2.0; wIncr -= 0.5; }
+        if (weather === 'WINDY') { fIncr += 1.5; }
+
+        return {
+          water: Math.max(0, Math.min(MAX_RESOURCE, prev.water + wIncr)),
+          sunlight: Math.max(0, Math.min(MAX_RESOURCE, prev.sunlight + sIncr)),
+          fertilizer: Math.max(0, Math.min(MAX_RESOURCE, prev.fertilizer + fIncr)),
+        };
+      });
     }, 1000);
     return () => clearInterval(interval);
-  }, [adjacencyBonuses]);
+  }, [weather]);
 
   // Passive Time-Based Growth
   useEffect(() => {
@@ -182,37 +182,39 @@ const App: React.FC = () => {
       return;
     }
 
+    // Resource consumption based on PLANTS data
+    const plantReq = PLANTS[selectedPlant];
+    if (resources.water < plantReq.waterReq || 
+        resources.sunlight < plantReq.sunReq || 
+        resources.fertilizer < plantReq.fertReq) {
+      alert(`资源不足以种植【${plantReq.name}】。需要：💧${plantReq.waterReq}, ☀️${plantReq.sunReq}, 🔥${plantReq.fertReq}`);
+      return;
+    }
+
     let finalPlant = selectedPlant;
     
-    // Evolution Rule 1: Lingxu Seed becomes Lingxu plant
-    if (selectedPlant === 'lingxu-seed') {
-      finalPlant = 'lingxu';
-    }
+    // Convert seed to plant
+    if (selectedPlant.endsWith('-seed-0')) finalPlant = selectedPlant.replace('-seed-0', '-0') as PlantType;
+    else if (selectedPlant.endsWith('-seed-1')) finalPlant = selectedPlant.replace('-seed-1', '-1') as PlantType;
+    else if (selectedPlant.endsWith('-seed-2')) finalPlant = selectedPlant.replace('-seed-2', '-2') as PlantType;
+    else if (selectedPlant.endsWith('-seed-3')) finalPlant = selectedPlant.replace('-seed-3', '-3') as PlantType;
+    else if (selectedPlant === 'chiyan-rice-seed') finalPlant = 'chiyan-rice';
+    else if (selectedPlant === 'jiahe-rice-seed') finalPlant = 'jiahe-rice';
 
-    // Evolution Rule 2: Yuzhu Seed becomes Transforming state immediately
-    if (selectedPlant === 'yuzhu-seed') {
-      finalPlant = 'yuzhu-transforming';
-    }
-
-    // New Evolution Seeds
-    if (selectedPlant === 'white-jade-rice-seed') {
-      finalPlant = 'white-jade-rice';
-    }
-    if (selectedPlant === 'suet-jade-rice-seed') {
-      finalPlant = 'suet-jade-rice';
-    }
-    if (selectedPlant === 'dragon-scale-rice-seed') {
-      finalPlant = 'dragon-scale-rice';
-    }
-
-    // Deduct seed
+    // Deduct seed and resources
     setInventory(inv => ({
       ...inv,
       [selectedPlant]: (inv[selectedPlant] || 1) - 1
     }));
 
+    setResources(prev => ({
+      water: prev.water - plantReq.waterReq,
+      sunlight: prev.sunlight - plantReq.sunReq,
+      fertilizer: prev.fertilizer - plantReq.fertReq,
+    }));
+
     setTiles(prev => prev.map(t => 
-      t.id === id ? { ...t, plantType: finalPlant, growth: 0 } : t
+      t.id === id ? { ...t, plantType: finalPlant, growth: 0, isLocked: false } : t
     ));
   };
 
@@ -220,58 +222,129 @@ const App: React.FC = () => {
     const tile = tiles.find(t => t.id === id);
     if (tile && tile.plantType) {
       const plantType = tile.plantType;
-      const plant = PLANTS[plantType];
-      let price = plant.basePrice;
 
-      // Special Harvest Logic for Evolution
-      if (plantType === 'lingxu') {
-        // ALWAYS get the crop itself
-        setInventory(inv => ({ ...inv, 'lingxu': (inv['lingxu'] || 0) + 1 }));
+      // Check for upgrade rules
 
-        if (tile.soilType === 'WET') {
-          // Success: Grant Yuzhu Seed
-          setInventory(inv => ({ 
-            ...inv, 
-            'yuzhu-seed': (inv['yuzhu-seed'] || 0) + 1 
-          }));
-          setDiscoveredCrops(prev => {
-            if (!prev.includes('yuzhu-seed')) {
-              return [...prev, 'yuzhu-seed'];
-            }
-            return prev;
-          });
-          alert("收获成功！龙须草在湿润土壤中结出了【玉珠草种子】。现在可以进行玉珠草演化了。");
-        } else {
-          alert("收获了龙须草。看来非湿润土壤无法让它结出进化的种子。");
-        }
-      } else {
-        // Normal harvest for other crops
-        setInventory(inv => ({ ...inv, [plantType]: (inv[plantType] || 0) + 1 }));
+      const rule = UPGRADE_RULES.find(r => 
+        r.source === plantType && 
+        (!r.landCondition || r.landCondition === tile.soilType)
+      );
+
+      if (rule && rule.hasDice) {
+        // Trigger dice roll
+        setDiceState({
+          isVisible: true,
+          value: null,
+          targetTileId: id,
+          baseChance: rule.baseChance,
+          upgradeTarget: rule.target,
+          isRolling: false
+        });
+        return;
       }
 
-      // Add the harvested crop to discovered crops so it shows up as a "card"
-      setDiscoveredCrops(prev => {
-        if (!prev.includes(plantType)) {
-          return [...prev, plantType];
-        }
-        return prev;
-      });
+      // No dice rule, check for 100% upgrade (like special rice)
+      if (rule && !rule.hasDice) {
+         // Some rules might have additional conditions like element count or adjacency
+         // For now, if it matches source and land, and has no dice, we check other conditions
+         let conditionMet = true;
+         if (rule.otherCondition === 'ADJACENT_BAISHIZHEN') {
+            const neighbors = tiles.filter(t => 
+              Math.abs(t.x - tile.x) + Math.abs(t.y - tile.y) === 1
+            );
+            conditionMet = neighbors.some(n => n.plantType?.startsWith('baishizhen'));
+         }
+         
+         if (conditionMet) {
+            finalizeHarvest(id, rule.target);
+            return;
+         }
+      }
 
-      setFp(f => f + Math.floor(price));
-      
-      setTiles(prev => prev.map(t => 
-        t.id === id ? { ...t, plantType: null, growth: 0, isLocked: false } : t
-      ));
+      // Default 100% harvest: product + same-level seed
+      finalizeHarvest(id);
     }
+  };
+
+  const finalizeHarvest = (tileId: number, upgradeSeed?: PlantType) => {
+    const tile = tiles.find(t => t.id === tileId);
+    if (!tile || !tile.plantType) return;
+
+    const plantType = tile.plantType;
+    const plant = PLANTS[plantType];
+
+    // 100% Harvest: Product
+    setInventory(inv => ({ ...inv, [plantType]: (inv[plantType] || 0) + 1 }));
+
+    if (upgradeSeed) {
+      // Success! Got the upgraded seed
+      setInventory(inv => ({ ...inv, [upgradeSeed]: (inv[upgradeSeed] || 0) + 1 }));
+      setDiscoveredCrops(prev => Array.from(new Set([...prev, upgradeSeed])));
+      alert(`奇迹发生了！你获得了【${PLANTS[upgradeSeed].name}】。`);
+      
+      confetti({
+        particleCount: 100,
+        spread: 70,
+        origin: { y: 0.6 }
+      });
+    } else {
+      // Normal: Get the same-level seed back
+      const seedType = plantType.includes('-') 
+        ? plantType.replace(/-(0|1|2|3)$/, '-seed-$1') as PlantType
+        : `${plantType}-seed` as PlantType;
+      
+      if (PLANTS[seedType]) {
+        setInventory(inv => ({ ...inv, [seedType]: (inv[seedType] || 0) + 1 }));
+      }
+      alert(`收获了【${plant.name}】。`);
+    }
+
+    setDiscoveredCrops(prev => Array.from(new Set([...prev, plantType])));
+    setFp(f => f + plant.basePrice);
+    setTiles(prev => prev.map(t => 
+      t.id === tileId ? { ...t, plantType: null, growth: 0, isLocked: false } : t
+    ));
+  };
+
+  const rollDice = () => {
+    if (diceState.isRolling) return;
+    setDiceState(prev => ({ ...prev, isRolling: true }));
+    
+    // Simulate rolling
+    setTimeout(() => {
+      const rollValue = Math.floor(Math.random() * 6) + 1;
+      const totalChance = diceState.baseChance + (rollValue * 0.1);
+      const isSuccess = Math.random() < totalChance;
+
+      setDiceState(prev => ({ ...prev, value: rollValue, isRolling: false }));
+
+      setTimeout(() => {
+        setDiceState(prev => ({ ...prev, isVisible: false }));
+        if (diceState.targetTileId !== null) {
+          finalizeHarvest(diceState.targetTileId, isSuccess ? diceState.upgradeTarget : undefined);
+        }
+      }, 1500);
+    }, 1000);
   };
 
   const handleCollectCreature = useCallback((id: number, type: string) => {
     setTiles(prev => prev.map(t => t.id === id ? { ...t, hasCreature: false } : t));
+
+    // Increase the resource bar when collecting a creature
+    setResources(prev => {
+      let next = { ...prev };
+      if (type === 'WATER') next.water = Math.min(MAX_RESOURCE, next.water + 25);
+      if (type === 'SUN') next.sunlight = Math.min(MAX_RESOURCE, next.sunlight + 25);
+      if (type === 'FIRE') next.fertilizer = Math.min(MAX_RESOURCE, next.fertilizer + 25);
+      return next;
+    });
+
+    // Still give essence for infusion
     setElementInventory(prev => ({
       ...prev,
       [type.toLowerCase()]: prev[type.toLowerCase() as keyof ElementInventory] + 1
     }));
-    
+
     let kpGain = 10;
     if (tiles.some(t => t.plantType === 'spirit-millet')) kpGain *= 1.1;
     if (tiles.some(t => t.plantType === 'feiling')) kpGain *= 1.15;
@@ -279,7 +352,8 @@ const App: React.FC = () => {
 
     setKp(k => k + Math.floor(kpGain));
     setFp(f => f + 10);
-  }, [tiles, inventory]);
+  }, [tiles]);
+
 
   const handleCompleteBlueprint = (blueprint: Blueprint) => {
     // Check if player has all required crops
@@ -327,14 +401,15 @@ const App: React.FC = () => {
     if (elementInventory[invKey] > 0) {
       setElementInventory(prev => ({ ...prev, [invKey]: prev[invKey] - 1 }));
       
-      let nextPlant: PlantType = 'white-jade-rice';
-      if (elementType === 'SUN') nextPlant = 'white-jade-rice'; // 金 -> 白玉灵稻
-      if (elementType === 'FIRE') nextPlant = 'suet-jade-rice'; // 木 -> 羊脂玉稻
-      if (elementType === 'WATER') nextPlant = 'dragon-scale-rice'; // 水 -> 龙鳞稻
+      let nextPlant: PlantType = 'white-jade-rice-0';
+      if (elementType === 'SUN') nextPlant = 'white-jade-rice-0'; 
+      if (elementType === 'FIRE') nextPlant = 'white-jade-rice-1'; 
+      if (elementType === 'WATER') nextPlant = 'white-jade-rice-2'; 
 
-      setTiles(prev => prev.map(t => 
-        t.id === id ? { ...t, plantType: nextPlant, growth: 0 } : t
+      setTiles(prev => prev.map(t =>
+        t.id === id ? { ...t, plantType: nextPlant, growth: 0, isLocked: false } : t
       ));
+
       alert(`注入了${elementType}元素！作物成功演化为【${PLANTS[nextPlant].name}】。`);
     } else {
       alert(`你没有足够的${elementType}元素。去捕捉地图上的灵生物吧！`);
@@ -349,8 +424,8 @@ const App: React.FC = () => {
     
     if (packId === 'outer') {
       setFp(prev => prev - cost);
-      setInventory(inv => ({ ...inv, 'lingxu-seed': (inv['lingxu-seed'] || 0) + 5 }));
-      alert('成功领取：外门弟子布袋（龙须草种子 x5）');
+      setInventory(inv => ({ ...inv, 'baishizhen-seed-0': (inv['baishizhen-seed-0'] || 0) + 5 }));
+      alert('成功领取：外门弟子布袋（白石针种子 [0] x5）');
     } else {
       alert('该物资包暂未开放申请。');
     }
@@ -364,6 +439,44 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden text-sm bg-slate-950 font-sans select-none">
+      {/* Dice Modal */}
+      {diceState.isVisible && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+          <div className="bg-slate-900 border-2 border-blue-500/50 p-10 rounded-[3rem] shadow-2xl text-center max-w-sm w-full mx-4">
+            <h2 className="text-2xl font-black text-white mb-2 uppercase tracking-tighter">天道运势</h2>
+            <p className="text-slate-400 text-xs mb-8">满足进阶条件，投掷骰子决定是否获得高阶种子</p>
+            
+            <div className={`w-32 h-32 mx-auto bg-slate-800 rounded-3xl border-4 border-slate-700 flex items-center justify-center text-6xl shadow-inner mb-8 transition-all ${diceState.isRolling ? 'animate-bounce' : ''}`}>
+              {diceState.isRolling ? '?' : diceState.value || '🎲'}
+            </div>
+
+            <div className="space-y-2 mb-10">
+              <div className="flex justify-between text-[10px] font-black uppercase text-slate-500">
+                <span>基础概率</span>
+                <span className="text-white">{(diceState.baseChance * 100).toFixed(0)}%</span>
+              </div>
+              <div className="flex justify-between text-[10px] font-black uppercase text-blue-400">
+                <span>骰子加成</span>
+                <span className="font-bold">{diceState.value ? `+${diceState.value * 10}%` : '+ (点数 × 10)%'}</span>
+              </div>
+              <div className="h-px bg-slate-800 my-2"></div>
+              <div className="flex justify-between text-xs font-black uppercase text-yellow-500">
+                <span>总计概率</span>
+                <span className="text-lg">{diceState.value ? `${(diceState.baseChance * 100 + diceState.value * 10).toFixed(0)}%` : '???'}</span>
+              </div>
+            </div>
+
+            <button 
+              onClick={rollDice}
+              disabled={diceState.isRolling || diceState.value !== null}
+              className={`w-full py-4 rounded-2xl font-black uppercase text-sm tracking-widest transition-all ${diceState.isRolling || diceState.value !== null ? 'bg-slate-800 text-slate-600' : 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg active:scale-95'}`}
+            >
+              {diceState.isRolling ? '运势流转中...' : diceState.value !== null ? '尘埃落定' : '投掷骰子'}
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <header className="flex justify-between items-center px-6 py-4 bg-slate-900/80 backdrop-blur-md border-b border-slate-800 z-10">
         <div className="flex space-x-8">
@@ -386,8 +499,7 @@ const App: React.FC = () => {
             <div className="grid grid-cols-4 gap-4 p-8 rounded-[2.5rem] border-2 border-slate-800 bg-slate-900/40 shadow-2xl">
               {tiles.map(tile => {
                 let state: TileState = 'EMPTY';
-                if (tile.plantType === 'yuzhu-transforming') state = 'TRANSFORMING';
-                else if (tile.plantType) state = tile.growth < 100 ? 'PLANTED' : 'MATURE';
+                if (tile.plantType) state = tile.growth < 100 ? 'PLANTED' : 'MATURE';
 
                 const tileData: TileData = {
                   id: tile.id,
@@ -493,30 +605,77 @@ const App: React.FC = () => {
              <div className="text-[9px] font-black text-blue-400 uppercase">资源 & 元素 RESOURCES</div>
              <ResourceMini label="💧" value={resources.water} color="bg-blue-500" count={elementInventory.water} />
              <ResourceMini label="☀️" value={resources.sunlight} color="bg-yellow-500" count={elementInventory.sun} />
-             <ResourceMini label="🧪" value={resources.fertilizer} color="bg-green-500" count={elementInventory.fire} />
+             <ResourceMini label="🔥" value={resources.fertilizer} color="bg-orange-500" count={elementInventory.fire} />
           </div>
 
           <div className="w-[2px] h-20 bg-white/5 rounded-full mx-2 shrink-0"></div>
 
-          {unlockedCrops.map(type => (
+          {unlockedCrops.filter(type => type.includes('seed')).map(type => (
             <div key={type} onClick={() => setSelectedPlant(type)}
               className={`min-w-[130px] h-32 rounded-[2rem] border-2 p-5 cursor-pointer transition-all flex flex-col justify-between relative group
                 ${selectedPlant === type ? 'border-blue-400 -translate-y-4 bg-slate-800 shadow-2xl' : 'border-white/5 bg-slate-800/40 shadow-inner'}
               `}
             >
               <div className="absolute top-3 right-4 text-[10px] font-black text-blue-400">{inventory[type] || 0}</div>
-              <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category}</div>
+              <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category} · {getPlantStage(type)}</div>
               <div className="text-xl">{PLANTS[type].icon}</div>
               <div className="text-xs font-black text-white leading-tight">{PLANTS[type].name}</div>
             </div>
           ))}
         </div>
 
-        <div className="w-64 bg-yellow-500/5 rounded-[2.5rem] border border-yellow-500/20 p-6 flex flex-col items-center justify-center shadow-inner">
-           <div className="text-[10px] font-black text-yellow-600 uppercase tracking-[0.2em] mb-2">宗门贡献 <span className="opacity-50">POINTS</span></div>
-           <div className="text-3xl font-black text-yellow-500 tracking-tighter">$ {fp}</div>
-        </div>
+        <button 
+          onClick={() => setIsBackpackOpen(true)}
+          className="w-64 bg-slate-800/40 rounded-[2.5rem] border border-white/5 p-6 flex flex-col items-center justify-center shadow-inner hover:bg-slate-700/60 transition-all group"
+        >
+           <div className="text-3xl mb-2 group-hover:scale-110 transition-transform">🎒</div>
+           <div className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em]">宗门行囊 <span className="text-slate-500 opacity-50">BACKPACK</span></div>
+        </button>
       </footer>
+
+      {/* Backpack Modal */}
+      {isBackpackOpen && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/90 backdrop-blur-xl p-10">
+          <div className="bg-slate-900 border border-white/10 rounded-[3.5rem] shadow-2xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden">
+            <header className="p-10 border-b border-white/5 flex justify-between items-center">
+              <div>
+                <h2 className="text-3xl font-black text-white uppercase tracking-tighter">宗门行囊 <span className="text-blue-500">BACKPACK</span></h2>
+                <p className="text-slate-500 text-xs mt-1 uppercase font-bold tracking-widest">存放已收获的各类灵植产物</p>
+              </div>
+              <button 
+                onClick={() => setIsBackpackOpen(false)}
+                className="w-12 h-12 bg-white/5 hover:bg-white/10 rounded-full flex items-center justify-center text-xl text-white transition-all"
+              >
+                ✕
+              </button>
+            </header>
+            
+            <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
+              {unlockedCrops.filter(type => !type.includes('seed')).length > 0 ? (
+                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                  {unlockedCrops.filter(type => !type.includes('seed')).map(type => (
+                    <div key={type} className="bg-slate-800/50 border border-white/5 rounded-3xl p-6 flex flex-col items-center text-center shadow-inner group hover:border-blue-500/30 transition-all">
+                      <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">{PLANTS[type].icon}</div>
+                      <div className="text-xs font-black text-white mb-1">{PLANTS[type].name}</div>
+                      <div className="text-[10px] font-black text-blue-400 uppercase mb-4">{inventory[type] || 0} 单位</div>
+                      <div className="text-[9px] text-slate-500 italic leading-tight px-2">{PLANTS[type].description}</div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
+                  <div className="text-6xl grayscale opacity-20">🌾</div>
+                  <div className="text-xs font-black uppercase tracking-widest">行囊空空如也</div>
+                </div>
+              )}
+            </div>
+
+            <footer className="p-8 bg-slate-950/50 border-t border-white/5 text-center">
+              <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest">提示：作物可用于完成【Brick Farm】拼图以获取知识点</p>
+            </footer>
+          </div>
+        </div>
+      )}
 
       {/* Completion Modal */}
       {isGameFinished && (
@@ -537,6 +696,15 @@ const App: React.FC = () => {
   );
 }
 
+function getPlantStage(type: PlantType): string {
+  if (type.startsWith('baishizhen')) return '野草';
+  if (type.startsWith('yuzhuxu')) return '蜕变中';
+  if (type.startsWith('white-jade-rice')) return '作物';
+  if (type === 'chiyan-rice' || type === 'jiahe-rice') return '品种';
+  if (type.includes('spirit') || type === 'lingsong' || type === 'lantern') return '作物';
+  return '野草';
+}
+
 function ResourceMini({ label, value, color, count }: { label: string, value: number, color: string, count: number }) {
   return (
     <div className="flex items-center space-x-3">
@@ -548,14 +716,6 @@ function ResourceMini({ label, value, color, count }: { label: string, value: nu
         <div className={`h-full ${color}`} style={{ width: `${value}%` }}></div>
       </div>
     </div>
-  );
-}
-
-function getNeighbors(id: number, tiles: LegacyTileState[]) {
-  const tile = tiles[id];
-  return tiles.filter(t => 
-    (Math.abs(t.x - tile.x) === 1 && t.y === tile.y) ||
-    (Math.abs(t.y - tile.y) === 1 && t.x === tile.x)
   );
 }
 

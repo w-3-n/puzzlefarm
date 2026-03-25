@@ -6,9 +6,23 @@ export type PlantType =
   | 'hongguo' | 'spirit-ginseng'
   | 'lantern' | 'spirit-pepper'
   | 'cairong' | 'spirit-cotton'
-  | 'lingxu-seed' | 'yuzhu-seed' | 'yuzhu-transforming' 
-  | 'white-jade-rice-seed' | 'suet-jade-rice-seed' | 'dragon-scale-rice-seed'
-  | 'white-jade-rice' | 'suet-jade-rice' | 'dragon-scale-rice' | 'unknown-seed';
+  | 'baishizhen-0' | 'baishizhen-1' | 'baishizhen-2' | 'baishizhen-3'
+  | 'baishizhen-seed-0' | 'baishizhen-seed-1' | 'baishizhen-seed-2' | 'baishizhen-seed-3'
+  | 'yuzhuxu-0' | 'yuzhuxu-1' | 'yuzhuxu-2' | 'yuzhuxu-3'
+  | 'yuzhuxu-seed-0' | 'yuzhuxu-seed-1' | 'yuzhuxu-seed-2' | 'yuzhuxu-seed-3'
+  | 'white-jade-rice-0' | 'white-jade-rice-1' | 'white-jade-rice-2' | 'white-jade-rice-3'
+  | 'white-jade-rice-seed-0' | 'white-jade-rice-seed-1' | 'white-jade-rice-seed-2' | 'white-jade-rice-seed-3'
+  | 'chiyan-rice' | 'chiyan-rice-seed'
+  | 'jiahe-rice' | 'jiahe-rice-seed';
+
+export interface DiceState {
+  isVisible: boolean;
+  value: number | null;
+  targetTileId: number | null;
+  baseChance: number;
+  upgradeTarget: PlantType;
+  isRolling: boolean;
+}
 
 export type SoilType = 'WET' | 'DRY' | 'RICH' | 'ROCKY';
 
@@ -227,116 +241,80 @@ export const PLANTS: Record<PlantType, PlantInfo> = {
     rewardText: '灵棉生长速度 +15%。',
     icon: '👕', pattern: 'cotton-cult-pattern', basePrice: 110
   },
-  'lingxu-seed': {
-    id: 'lingxu-seed',
-    name: '龙须草种子',
-    scientificName: 'Semen Oryzae rufipogonis',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '演化的源头，种植在湿润土壤中可见真章。',
-    educationalDescription: '这颗种子蕴含着最原始的遗传信息，是所有灵稻的始祖。',
-    rewardText: '开启发现之旅。',
-    icon: '🧪', pattern: 'seed-lingxu-pattern', basePrice: 5
+  'baishizhen-0': {
+    id: 'baishizhen-0', name: '白石针 [0]', scientificName: 'Oryza rufipogon var. alba 0', category: '粮食',
+    waterReq: 20, sunReq: 20, fertReq: 10, description: '基础野草形态。', educationalDescription: '最初级的白石针，生命力顽强。', rewardText: '基础产物。', icon: '🌱', pattern: 'baishi-0-pattern', basePrice: 10
   },
-  'yuzhu-seed': {
-    id: 'yuzhu-seed',
-    name: '玉珠草种子',
-    scientificName: 'Semen Oryzae perlata',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '通过初步演化获得的珍贵种子。',
-    educationalDescription: '玉珠草种子能够响应元素力量，产生各种形态的变异。',
-    rewardText: '进入元素演化阶段。',
-    icon: '🧬', pattern: 'seed-yuzhu-pattern', basePrice: 50
+  'baishizhen-1': {
+    id: 'baishizhen-1', name: '白石针 [1]', scientificName: 'Oryza rufipogon var. alba 1', category: '粮食',
+    waterReq: 25, sunReq: 20, fertReq: 15, description: '进阶野草形态。', educationalDescription: '初步展现灵气的白石针。', rewardText: '一阶段产物。', icon: '🌿', pattern: 'baishi-1-pattern', basePrice: 20
   },
-  'white-jade-rice-seed': {
-    id: 'white-jade-rice-seed',
-    name: '白玉灵稻种子',
-    scientificName: 'Semen Oryzae albae',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '演化而来的白玉灵稻种子。',
-    educationalDescription: '白玉灵稻种子，可以直接种出白玉灵稻。',
-    rewardText: '开启白玉灵稻种植。',
-    icon: '🧪', pattern: 'seed-white-pattern', basePrice: 20
+  'baishizhen-2': {
+    id: 'baishizhen-2', name: '白石针 [2]', scientificName: 'Oryza rufipogon var. alba 2', category: '粮食',
+    waterReq: 30, sunReq: 25, fertReq: 20, description: '高级野草形态。', educationalDescription: '灵气充盈的白石针。', rewardText: '二阶段产物。', icon: '☘️', pattern: 'baishi-2-pattern', basePrice: 40
   },
-  'suet-jade-rice-seed': {
-    id: 'suet-jade-rice-seed',
-    name: '羊脂玉稻种子',
-    scientificName: 'Semen Oryzae lanigerae',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '演化而来的羊脂玉稻种子。',
-    educationalDescription: '羊脂玉稻种子，可以直接种出羊脂玉稻。',
-    rewardText: '开启羊脂玉稻种植。',
-    icon: '🧪', pattern: 'seed-suet-pattern', basePrice: 40
+  'baishizhen-3': {
+    id: 'baishizhen-3', name: '白石针 [3]', scientificName: 'Oryza rufipogon var. alba 3', category: '粮食',
+    waterReq: 35, sunReq: 30, fertReq: 25, description: '巅峰野草形态。', educationalDescription: '即将发生质变的白石针。', rewardText: '三阶段产物。', icon: '🌾', pattern: 'baishi-3-pattern', basePrice: 80
   },
-  'dragon-scale-rice-seed': {
-    id: 'dragon-scale-rice-seed',
-    name: '龙鳞稻种子',
-    scientificName: 'Semen Oryzae draconis',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '演化而来的龙鳞稻种子。',
-    educationalDescription: '龙鳞稻种子，可以直接种出龙鳞稻。',
-    rewardText: '开启龙鳞稻种植。',
-    icon: '🧪', pattern: 'seed-dragon-pattern', basePrice: 100
+  'baishizhen-seed-0': { id: 'baishizhen-seed-0', name: '白石针种子 [0]', scientificName: 'Semen 0', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '白石针的原始种子。', educationalDescription: '最基础的生命之源。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 5 },
+  'baishizhen-seed-1': { id: 'baishizhen-seed-1', name: '白石针种子 [1]', scientificName: 'Semen 1', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '进阶种子。', educationalDescription: '进阶种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 10 },
+  'baishizhen-seed-2': { id: 'baishizhen-seed-2', name: '白石针种子 [2]', scientificName: 'Semen 2', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '高级种子。', educationalDescription: '高级种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 20 },
+  'baishizhen-seed-3': { id: 'baishizhen-seed-3', name: '白石针种子 [3]', scientificName: 'Semen 3', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '巅峰种子。', educationalDescription: '巅峰种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 40 },
+
+  'yuzhuxu-0': {
+    id: 'yuzhuxu-0', name: '玉珠须 [0]', scientificName: 'Oryza perlata 0', category: '粮食',
+    waterReq: 40, sunReq: 30, fertReq: 30, description: '蜕变初始态。', educationalDescription: '白石针质变后的产物。', rewardText: '蜕变产物。', icon: '✨', pattern: 'yuzhu-0-pattern', basePrice: 150
   },
-  'yuzhu-transforming': {
-    id: 'yuzhu-transforming',
-    name: '玉珠草 (蜕变中)',
-    scientificName: 'Oryza perlata (Mutating)',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '生命形态正在剧烈变化，急需元素引导。',
-    educationalDescription: '当玉珠草遇到湿润土壤，其隐藏的基因将被激活，进入蜕变状态。',
-    rewardText: '可投入元素引导演化方向。',
-    icon: '✨', pattern: 'rice-mut-pattern', basePrice: 0
+  'yuzhuxu-1': {
+    id: 'yuzhuxu-1', name: '玉珠须 [1]', scientificName: 'Oryza perlata 1', category: '粮食',
+    waterReq: 45, sunReq: 35, fertReq: 35, description: '蜕变一阶段。', educationalDescription: '蜕变一阶段。', rewardText: '蜕变产物。', icon: '✨', pattern: 'yuzhu-1-pattern', basePrice: 200
   },
-  'white-jade-rice': {
-    id: 'white-jade-rice',
-    name: '白玉灵稻',
-    scientificName: 'Oryza alba',
-    category: '粮食',
-    waterReq: 30, sunReq: 20, fertReq: 20,
-    description: '如白玉般晶莹剔透，是基础的灵粮。',
-    educationalDescription: '吸收了大地精粹后形成的灵稻，口感温润。',
-    rewardText: '完成基础农业拼图。',
-    icon: '🍚', pattern: 'rice-white-pattern', basePrice: 100
+  'yuzhuxu-2': {
+    id: 'yuzhuxu-2', name: '玉珠须 [2]', scientificName: 'Oryza perlata 2', category: '粮食',
+    waterReq: 50, sunReq: 40, fertReq: 40, description: '蜕变二阶段。', educationalDescription: '蜕变二阶段。', rewardText: '蜕变产物。', icon: '✨', pattern: 'yuzhu-2-pattern', basePrice: 300
   },
-  'suet-jade-rice': {
-    id: 'suet-jade-rice',
-    name: '羊脂玉稻',
-    scientificName: 'Oryza lanigera',
-    category: '粮食',
-    waterReq: 40, sunReq: 30, fertReq: 30,
-    description: '质感如羊脂般细腻，蕴含丰富的火灵力。',
-    educationalDescription: '在火元素引导下演化出的高级品种。',
-    rewardText: '完成进阶农业拼图。',
-    icon: '🍛', pattern: 'rice-suet-pattern', basePrice: 200
+  'yuzhuxu-3': {
+    id: 'yuzhuxu-3', name: '玉珠须 [3]', scientificName: 'Oryza perlata 3', category: '粮食',
+    waterReq: 55, sunReq: 45, fertReq: 45, description: '蜕变三阶段。', educationalDescription: '蜕变三阶段。', rewardText: '蜕变产物。', icon: '✨', pattern: 'yuzhu-3-pattern', basePrice: 500
   },
-  'dragon-scale-rice': {
-    id: 'dragon-scale-rice',
-    name: '龙鳞稻',
-    scientificName: 'Oryza draconis',
-    category: '粮食',
-    waterReq: 60, sunReq: 40, fertReq: 50,
-    description: '米粒上隐约可见龙鳞纹路，极品灵粮。',
-    educationalDescription: '传说中真龙遗泽滋养出的神物，拥有不可思议的力量。',
-    rewardText: '完成终极农业拼图。',
-    icon: '🍱', pattern: 'rice-dragon-pattern', basePrice: 500
+  'yuzhuxu-seed-0': { id: 'yuzhuxu-seed-0', name: '玉珠须种子 [0]', scientificName: 'Semen Y 0', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '玉珠须种子。', educationalDescription: '玉珠须种子。', rewardText: '开启种植。', icon: '🧬', pattern: 'seed-pattern', basePrice: 50 },
+  'yuzhuxu-seed-1': { id: 'yuzhuxu-seed-1', name: '玉珠须种子 [1]', scientificName: 'Semen Y 1', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '玉珠须种子。', educationalDescription: '玉珠须种子。', rewardText: '开启种植。', icon: '🧬', pattern: 'seed-pattern', basePrice: 75 },
+  'yuzhuxu-seed-2': { id: 'yuzhuxu-seed-2', name: '玉珠须种子 [2]', scientificName: 'Semen Y 2', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '玉珠须种子。', educationalDescription: '玉珠须种子。', rewardText: '开启种植。', icon: '🧬', pattern: 'seed-pattern', basePrice: 100 },
+  'yuzhuxu-seed-3': { id: 'yuzhuxu-seed-3', name: '玉珠须种子 [3]', scientificName: 'Semen Y 3', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '玉珠须种子。', educationalDescription: '玉珠须种子。', rewardText: '开启种植。', icon: '🧬', pattern: 'seed-pattern', basePrice: 150 },
+
+  'white-jade-rice-0': {
+    id: 'white-jade-rice-0', name: '白玉灵稻 [0]', scientificName: 'Oryza alba 0', category: '粮食',
+    waterReq: 50, sunReq: 40, fertReq: 50, description: '灵稻初始态。', educationalDescription: '吸收了大地精粹后形成的灵稻。', rewardText: '灵稻产物。', icon: '🍚', pattern: 'rice-0-pattern', basePrice: 800
   },
-  'unknown-seed': {
-    id: 'unknown-seed',
-    name: '未知种子',
-    scientificName: 'Semen incognitum',
-    category: '粮食',
-    waterReq: 0, sunReq: 0, fertReq: 0,
-    description: '一颗充满生命律动的种子。',
-    educationalDescription: '这是玉珠草在湿润土壤中感应天地灵气后结出的种子。',
-    rewardText: '这是演化的基石。',
-    icon: '🧪', pattern: 'seed-unknown-pattern', basePrice: 5
-  }
+  'white-jade-rice-1': {
+    id: 'white-jade-rice-1', name: '白玉灵稻 [1]', scientificName: 'Oryza alba 1', category: '粮食',
+    waterReq: 55, sunReq: 45, fertReq: 55, description: '灵稻一阶段。', educationalDescription: '灵稻一阶段。', rewardText: '灵稻产物。', icon: '🍚', pattern: 'rice-1-pattern', basePrice: 1000
+  },
+  'white-jade-rice-2': {
+    id: 'white-jade-rice-2', name: '白玉灵稻 [2]', scientificName: 'Oryza alba 2', category: '粮食',
+    waterReq: 60, sunReq: 50, fertReq: 60, description: '灵稻二阶段。', educationalDescription: '灵稻二阶段。', rewardText: '灵稻产物。', icon: '🍚', pattern: 'rice-2-pattern', basePrice: 1500
+  },
+  'white-jade-rice-3': {
+    id: 'white-jade-rice-3', name: '白玉灵稻 [3]', scientificName: 'Oryza alba 3', category: '粮食',
+    waterReq: 65, sunReq: 55, fertReq: 65, description: '灵稻三阶段。', educationalDescription: '灵稻三阶段。', rewardText: '灵稻产物。', icon: '🍚', pattern: 'rice-3-pattern', basePrice: 2000
+  },
+  'white-jade-rice-seed-0': { id: 'white-jade-rice-seed-0', name: '白玉灵稻种子 [0]', scientificName: 'Semen W 0', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '白玉灵稻种子。', educationalDescription: '白玉灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 300 },
+  'white-jade-rice-seed-1': { id: 'white-jade-rice-seed-1', name: '白玉灵稻种子 [1]', scientificName: 'Semen W 1', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '白玉灵稻种子。', educationalDescription: '白玉灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 400 },
+  'white-jade-rice-seed-2': { id: 'white-jade-rice-seed-2', name: '白玉灵稻种子 [2]', scientificName: 'Semen W 2', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '白玉灵稻种子。', educationalDescription: '白玉灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 500 },
+  'white-jade-rice-seed-3': { id: 'white-jade-rice-seed-3', name: '白玉灵稻种子 [3]', scientificName: 'Semen W 3', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '白玉灵稻种子。', educationalDescription: '白玉灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 800 },
+
+  'chiyan-rice': {
+    id: 'chiyan-rice', name: '赤炎灵稻', scientificName: 'Oryza ignis', category: '粮食',
+    waterReq: 40, sunReq: 80, fertReq: 80, description: '蕴含强烈火灵力的灵稻。', educationalDescription: '在双重火元素洗礼下诞生的异种。', rewardText: '完成特殊进化。', icon: '🔥', pattern: 'chiyan-pattern', basePrice: 5000
+  },
+  'chiyan-rice-seed': { id: 'chiyan-rice-seed', name: '赤炎灵稻种子', scientificName: 'Semen Ignis', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '稀有的赤炎灵稻种子。', educationalDescription: '稀有的赤炎灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 2000 },
+
+  'jiahe-rice': {
+    id: 'jiahe-rice', name: '嘉禾灵稻', scientificName: 'Oryza jiahe', category: '粮食',
+    waterReq: 60, sunReq: 40, fertReq: 60, description: '象征祥瑞的灵稻。', educationalDescription: '在白石针环绕下感应而生的瑞草。', rewardText: '完成特殊进化。', icon: '🌾', pattern: 'jiahe-pattern', basePrice: 5000
+  },
+  'jiahe-rice-seed': { id: 'jiahe-rice-seed', name: '嘉禾灵稻种子', scientificName: 'Semen Jiahe', category: '粮食', waterReq: 0, sunReq: 0, fertReq: 0, description: '稀有的嘉禾灵稻种子。', educationalDescription: '稀有的嘉禾灵稻种子。', rewardText: '开启种植。', icon: '🧪', pattern: 'seed-pattern', basePrice: 2000 }
 };
 
 export const CROPS = PLANTS;

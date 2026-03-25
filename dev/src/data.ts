@@ -1,38 +1,66 @@
-import { Blueprint } from './types';
+import { Blueprint, PlantType, SoilType, CreatureType } from './types';
+
+export interface UpgradeRule {
+  source: PlantType;
+  landCondition?: SoilType;
+  elementCondition?: CreatureType;
+  elementCount?: number;
+  otherCondition?: string;
+  target: PlantType;
+  baseChance: number;
+  hasDice: boolean;
+}
+
+export const UPGRADE_RULES: UpgradeRule[] = [
+  // Baishizhen path
+  { source: 'baishizhen-0', landCondition: 'WET', target: 'baishizhen-seed-1', baseChance: 0.02, hasDice: true },
+  { source: 'baishizhen-1', landCondition: 'WET', target: 'baishizhen-seed-2', baseChance: 0.02, hasDice: true },
+  { source: 'baishizhen-2', landCondition: 'WET', target: 'baishizhen-seed-3', baseChance: 0.02, hasDice: true },
+  { source: 'baishizhen-3', landCondition: 'WET', target: 'yuzhuxu-seed-0', baseChance: 0.02, hasDice: true },
+  
+  // Yuzhuxu path
+  { source: 'yuzhuxu-0', elementCondition: 'FIRE', target: 'yuzhuxu-seed-1', baseChance: 0.02, hasDice: true },
+  { source: 'yuzhuxu-1', elementCondition: 'FIRE', target: 'yuzhuxu-seed-2', baseChance: 0.02, hasDice: true },
+  { source: 'yuzhuxu-2', elementCondition: 'FIRE', target: 'yuzhuxu-seed-3', baseChance: 0.02, hasDice: true },
+  { source: 'yuzhuxu-3', elementCondition: 'FIRE', target: 'white-jade-rice-seed-0', baseChance: 0.02, hasDice: true },
+  
+  // White Jade Rice path
+  { source: 'white-jade-rice-0', elementCondition: 'FIRE', target: 'white-jade-rice-seed-1', baseChance: 0.02, hasDice: true },
+  { source: 'white-jade-rice-1', elementCondition: 'FIRE', target: 'white-jade-rice-seed-2', baseChance: 0.02, hasDice: true },
+  { source: 'white-jade-rice-2', elementCondition: 'FIRE', target: 'white-jade-rice-seed-3', baseChance: 0.02, hasDice: true },
+  
+  // Special White Jade Rice [3] upgrades
+  { source: 'white-jade-rice-3', elementCondition: 'FIRE', elementCount: 2, target: 'chiyan-rice-seed', baseChance: 1.0, hasDice: false },
+  { source: 'white-jade-rice-3', elementCondition: 'FIRE', otherCondition: 'ADJACENT_BAISHIZHEN', target: 'jiahe-rice-seed', baseChance: 1.0, hasDice: false },
+];
+
 export const BLUEPRINTS: Blueprint[] = [
   {
-    id: 'lingxu-foundation',
-    name: '龙须草起源',
-    requiredCrops: ['lingxu'],
-    description: '收集最基础的龙须草，它是所有进化的起点。',
-    rewardKP: 50
-  },
-  {
-    id: 'rice-evolution-1',
-    name: '基础灵稻拼图',
-    requiredCrops: ['white-jade-rice'],
-    description: '收集通过黄色元素演化出的白玉灵稻，开启灵能农业的第一步。',
-    rewardKP: 150
-  },
-  {
-    id: 'rice-evolution-2',
-    name: '进阶羊脂拼图',
-    requiredCrops: ['suet-jade-rice'],
-    description: '火元素的力量让灵稻产生了质变，收集羊脂玉稻以解锁更高深的生物知识。',
-    rewardKP: 300
-  },
-  {
-    id: 'rice-evolution-3',
-    name: '终极龙鳞拼图',
-    requiredCrops: ['dragon-scale-rice'],
-    description: '唯有在水元素的极致引导下，才能培育出传说中的龙鳞稻。',
-    rewardKP: 1000
-  },
-  {
-    id: 'rice-blueprint',
-    name: '古代稻作拼图',
-    requiredCrops: ['lingxu', 'spirit-rice'],
-    description: '通过收集野生稻和改良稻，还原人类最早的耕作模式。',
+    id: 'baishizhen-evolution',
+    name: '白石针的蜕变',
+    requiredCrops: ['baishizhen-3'],
+    description: '见证野草向灵植的最初跨越。',
     rewardKP: 100
+  },
+  {
+    id: 'yuzhuxu-perfection',
+    name: '玉珠须的极致',
+    requiredCrops: ['yuzhuxu-3'],
+    description: '通过火元素的洗礼，让玉珠须达到完美的平衡。',
+    rewardKP: 250
+  },
+  {
+    id: 'white-jade-ultimate',
+    name: '白玉灵稻之光',
+    requiredCrops: ['white-jade-rice-3'],
+    description: '培育出最高等级的白玉灵稻。',
+    rewardKP: 500
+  },
+  {
+    id: 'special-rice-varieties',
+    name: '异变稻种录',
+    requiredCrops: ['chiyan-rice', 'jiahe-rice'],
+    description: '收集因特殊环境产生的变异稻种。',
+    rewardKP: 1000
   }
 ];
