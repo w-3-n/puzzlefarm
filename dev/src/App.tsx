@@ -87,6 +87,7 @@ const App: React.FC = () => {
     isRolling: false
   });
   const [isBackpackOpen, setIsBackpackOpen] = useState(false);
+  const [footerActiveTiers, setFooterActiveTiers] = useState<Record<string, number>>({});
 
   // Discovery system
   const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['baishizhen-seed-0']);
@@ -97,6 +98,33 @@ const App: React.FC = () => {
     const all = Array.from(new Set([...discoveredCrops, ...inInv]));
     return all;
   }, [discoveredCrops, inventory]);
+
+  const unlockedLineages = useMemo(() => {
+    const seeds = unlockedCrops.filter((type: PlantType) => type.includes('seed'));
+    const groups: Record<string, PlantType[]> = {};
+    
+    seeds.forEach((type: PlantType) => {
+      const lineage = PLANTS[type].lineage || 'other';
+      if (!groups[lineage]) groups[lineage] = [];
+      groups[lineage].push(type);
+    });
+
+    // For each lineage, we'll return the list of seeds sorted by tier
+    return Object.entries(groups).map(([name, types]) => ({
+      name,
+      types: types.sort((a, b) => (PLANTS[a].tier || 0) - (PLANTS[b].tier || 0))
+    }));
+  }, [unlockedCrops]);
+
+  // Helper for visual tiering
+  const getTierStyles = (tier: number = 0) => {
+    switch (tier) {
+      case 1: return 'border-orange-500/50 shadow-[0_0_15px_rgba(249,115,22,0.2)] text-orange-400';
+      case 2: return 'border-slate-300/50 shadow-[0_0_15px_rgba(203,213,225,0.2)] text-slate-200';
+      case 3: return 'border-yellow-400 shadow-[0_0_20px_rgba(250,204,21,0.3)] text-yellow-400';
+      default: return 'border-white/5 shadow-inner text-slate-400';
+    }
+  };
 
   // Resource regeneration: Depends on WEATHER
   useEffect(() => {
@@ -530,6 +558,51 @@ const App: React.FC = () => {
 
         {activeTab === 'LAB' && (
           <section className="flex-1 p-8 overflow-y-auto custom-scrollbar">
+            <h2 className="text-2xl font-black text-white uppercase tracking-[0.2em] mb-8 text-center">Brick Farm <span className="text-blue-500">CODEX</span></h2>
+            
+            {/* Evolution Progress Tree */}
+            <div className="max-w-7xl mx-auto mb-20 bg-slate-900/40 rounded-[3rem] border border-white/5 p-12 shadow-2xl">
+              <div className="flex justify-between items-start mb-12">
+                <div>
+                  <h3 className="text-xl font-black text-white uppercase tracking-tighter">物种演化图谱</h3>
+                  <p className="text-slate-500 text-xs mt-1 font-bold uppercase tracking-widest">记录已发现的灵植演化路径与阶段</p>
+                </div>
+                <div className="text-right">
+                  <div className="text-[10px] font-black text-blue-400 uppercase tracking-widest mb-1">总发现进度</div>
+                  <div className="text-2xl font-black text-white">{Math.floor((discoveredCrops.length / Object.keys(PLANTS).length) * 100)}%</div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+                {['baishizhen', 'yuzhuxu', 'white-jade-rice'].map(lineageName => {
+                  const lineageCrops = Object.values(PLANTS).filter(p => p.lineage === lineageName && !p.id.includes('seed'));
+                  return (
+                    <div key={lineageName} className="space-y-8">
+                      <div className="text-[10px] font-black text-slate-500 uppercase tracking-[0.4em] text-center border-b border-white/5 pb-4">{lineageName}</div>
+                      <div className="flex flex-col items-center space-y-6">
+                        {lineageCrops.map((crop, idx) => {
+                          const isDiscovered = discoveredCrops.includes(crop.id);
+                          return (
+                            <React.Fragment key={crop.id}>
+                              <div className={`w-20 h-20 rounded-[2rem] border-2 flex items-center justify-center text-3xl transition-all duration-500 relative
+                                ${isDiscovered ? `${getTierStyles(crop.tier)} bg-slate-800/50` : 'border-slate-800 bg-slate-950/50 grayscale opacity-20'}
+                              `}>
+                                {isDiscovered ? crop.icon : '?'}
+                                {isDiscovered && <div className="absolute -top-1 -right-1 w-5 h-5 bg-blue-600 rounded-full flex items-center justify-center text-[8px] font-black text-white">✓</div>}
+                              </div>
+                              {idx < lineageCrops.length - 1 && (
+                                <div className={`w-0.5 h-8 ${isDiscovered && discoveredCrops.includes(lineageCrops[idx+1].id) ? 'bg-blue-500/30' : 'bg-slate-800'}`}></div>
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
             <h2 className="text-2xl font-black text-white uppercase tracking-[0.2em] mb-8 text-center">Brick Farm <span className="text-blue-500">BLUEPRINTS</span></h2>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-7xl mx-auto">
               {BLUEPRINTS.map(bp => {
@@ -610,18 +683,42 @@ const App: React.FC = () => {
 
           <div className="w-[2px] h-20 bg-white/5 rounded-full mx-2 shrink-0"></div>
 
-          {unlockedCrops.filter(type => type.includes('seed')).map(type => (
-            <div key={type} onClick={() => setSelectedPlant(type)}
-              className={`min-w-[130px] h-32 rounded-[2rem] border-2 p-5 cursor-pointer transition-all flex flex-col justify-between relative group
-                ${selectedPlant === type ? 'border-blue-400 -translate-y-4 bg-slate-800 shadow-2xl' : 'border-white/5 bg-slate-800/40 shadow-inner'}
-              `}
-            >
-              <div className="absolute top-3 right-4 text-[10px] font-black text-blue-400">{inventory[type] || 0}</div>
-              <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category} · {getPlantStage(type)}</div>
-              <div className="text-xl">{PLANTS[type].icon}</div>
-              <div className="text-xs font-black text-white leading-tight">{PLANTS[type].name}</div>
-            </div>
-          ))}
+          {unlockedLineages.map(lineage => {
+            const activeTier = footerActiveTiers[lineage.name] ?? (lineage.types.length - 1);
+            const type = lineage.types[activeTier];
+            const isSelected = selectedPlant === type;
+
+            return (
+              <div key={lineage.name} className="flex flex-col items-center space-y-2">
+                <div 
+                  onClick={() => setSelectedPlant(type)}
+                  className={`min-w-[130px] h-32 rounded-[2rem] border-2 p-5 cursor-pointer transition-all flex flex-col justify-between relative group
+                    ${isSelected ? 'border-blue-400 -translate-y-4 bg-slate-800 shadow-2xl' : getTierStyles(PLANTS[type].tier)}
+                  `}
+                >
+                  <div className="absolute top-3 right-4 text-[10px] font-black text-blue-400">{inventory[type] || 0}</div>
+                  <div className="text-[9px] font-black text-slate-500 uppercase mb-1">{PLANTS[type].category} · Tier {PLANTS[type].tier}</div>
+                  <div className="text-xl">{PLANTS[type].icon}</div>
+                  <div className="text-xs font-black text-white leading-tight">{PLANTS[type].name}</div>
+                </div>
+                
+                {/* Tier Selector Stacks */}
+                <div className="flex space-x-1.5">
+                  {lineage.types.map((t, idx) => (
+                    <button 
+                      key={t}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setFooterActiveTiers(prev => ({ ...prev, [lineage.name]: idx }));
+                      }}
+                      className={`w-2 h-2 rounded-full transition-all ${idx === activeTier ? 'bg-blue-500 scale-125' : 'bg-slate-700 hover:bg-slate-500'}`}
+                      title={PLANTS[t].name}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <button 
@@ -651,16 +748,37 @@ const App: React.FC = () => {
             </header>
             
             <div className="flex-1 overflow-y-auto p-10 custom-scrollbar">
-              {unlockedCrops.filter(type => !type.includes('seed')).length > 0 ? (
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-                  {unlockedCrops.filter(type => !type.includes('seed')).map(type => (
-                    <div key={type} className="bg-slate-800/50 border border-white/5 rounded-3xl p-6 flex flex-col items-center text-center shadow-inner group hover:border-blue-500/30 transition-all">
-                      <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">{PLANTS[type].icon}</div>
-                      <div className="text-xs font-black text-white mb-1">{PLANTS[type].name}</div>
-                      <div className="text-[10px] font-black text-blue-400 uppercase mb-4">{inventory[type] || 0} 单位</div>
-                      <div className="text-[9px] text-slate-500 italic leading-tight px-2">{PLANTS[type].description}</div>
-                    </div>
-                  ))}
+              {Object.keys(inventory).filter(t => !t.includes('seed') && inventory[t as PlantType]! > 0).length > 0 ? (
+                <div className="space-y-12">
+                  {['baishizhen', 'yuzhuxu', 'white-jade-rice', 'other'].map(lineageName => {
+                    const items = Object.keys(inventory).filter(t => 
+                      !t.includes('seed') && 
+                      (inventory[t as PlantType] || 0) > 0 && 
+                      (PLANTS[t as PlantType].lineage === lineageName || (lineageName === 'other' && !PLANTS[t as PlantType].lineage))
+                    ) as PlantType[];
+
+                    if (items.length === 0) return null;
+
+                    return (
+                      <div key={lineageName} className="space-y-6">
+                        <div className="flex items-center space-x-4">
+                          <div className="h-px flex-1 bg-white/5"></div>
+                          <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em]">{lineageName === 'other' ? '其他产物' : lineageName} 系</h3>
+                          <div className="h-px flex-1 bg-white/5"></div>
+                        </div>
+                        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+                          {items.map(type => (
+                            <div key={type} className={`bg-slate-800/50 border rounded-3xl p-6 flex flex-col items-center text-center shadow-inner group hover:border-blue-500/30 transition-all ${getTierStyles(PLANTS[type].tier)}`}>
+                              <div className="text-3xl mb-4 group-hover:scale-110 transition-transform">{PLANTS[type].icon}</div>
+                              <div className="text-xs font-black text-white mb-1">{PLANTS[type].name}</div>
+                              <div className="text-[10px] font-black text-blue-400 uppercase mb-4">{inventory[type] || 0} 单位</div>
+                              <div className="text-[9px] text-slate-500 italic leading-tight px-2">{PLANTS[type].description}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-4">
@@ -694,15 +812,6 @@ const App: React.FC = () => {
       )}
     </div>
   );
-}
-
-function getPlantStage(type: PlantType): string {
-  if (type.startsWith('baishizhen')) return '野草';
-  if (type.startsWith('yuzhuxu')) return '蜕变中';
-  if (type.startsWith('white-jade-rice')) return '作物';
-  if (type === 'chiyan-rice' || type === 'jiahe-rice') return '品种';
-  if (type.includes('spirit') || type === 'lingsong' || type === 'lantern') return '作物';
-  return '野草';
 }
 
 function ResourceMini({ label, value, color, count }: { label: string, value: number, color: string, count: number }) {
