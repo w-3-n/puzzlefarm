@@ -350,6 +350,11 @@ export interface TileData {
   hasCreature: boolean;
   creatureType?: CreatureType;
   lastSpawnedAt?: number;
+  appliedElements?: {
+    water: number;
+    sun: number;
+    fire: number;
+  };
 }
 
 export interface LegacyTileState {
@@ -363,6 +368,11 @@ export interface LegacyTileState {
   hasCreature: boolean;
   creatureType?: CreatureType;
   lastSpawnedAt?: number;
+  appliedElements?: {
+    water: number;
+    sun: number;
+    fire: number;
+  };
 }
 
 export interface GameResources {

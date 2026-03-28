@@ -17,8 +17,12 @@ const Tile: React.FC<TileProps> = ({ data, onPlant, onHarvest, onCollectCreature
     
     if (data.state === 'EMPTY') {
       onPlant(data.id);
-    } else if (data.state === 'MATURE') {
-      onHarvest(data.id);
+    } else if (data.state === 'MATURE' || data.state === 'PLANTED') {
+      // If an element is selected, we apply it. 
+      // This logic will be handled by the parent handleTileClick or similar.
+      // For now, we'll just pass the click up.
+      if (data.state === 'MATURE') onHarvest(data.id);
+      else onPlant(data.id); // This will handle application if something is selected
     }
   };
 
@@ -30,6 +34,16 @@ const Tile: React.FC<TileProps> = ({ data, onPlant, onHarvest, onCollectCreature
       case 'ROCKY': return 'bg-slate-800 border-slate-600/50';
       default: return 'bg-slate-900/40 border-slate-800';
     }
+  };
+
+  const getElementOutline = () => {
+    if (!data.appliedElements) return '';
+    const { fire, sun, water } = data.appliedElements;
+    let classes = '';
+    if (fire > 0) classes += ` ring-red-500 ring-offset-2 ${fire > 1 ? 'ring-4' : 'ring-2'}`;
+    else if (sun > 0) classes += ` ring-yellow-400 ring-offset-2 ${sun > 1 ? 'ring-4' : 'ring-2'}`;
+    else if (water > 0) classes += ` ring-blue-500 ring-offset-2 ${water > 1 ? 'ring-4' : 'ring-2'}`;
+    return classes;
   };
 
   const getSoilLabel = () => {
@@ -45,6 +59,7 @@ const Tile: React.FC<TileProps> = ({ data, onPlant, onHarvest, onCollectCreature
     <div 
       className={`relative w-32 h-32 rounded-[1.5rem] border-2 flex flex-col items-center justify-center transition-all cursor-pointer group shadow-lg
         ${getSoilClass()}
+        ${getElementOutline()}
         ${data.state === 'EMPTY' ? 'hover:scale-105 hover:border-white/20' : ''}
         ${data.state === 'TRANSFORMING' ? 'ring-4 ring-purple-500/50 animate-pulse' : ''}
       `}

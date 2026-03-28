@@ -30,8 +30,8 @@ export const UPGRADE_RULES: UpgradeRule[] = [
   { source: 'white-jade-rice-2', elementCondition: 'FIRE', target: 'white-jade-rice-seed-3', baseChance: 0.02, hasDice: true },
   
   // Special White Jade Rice [3] upgrades
-  { source: 'white-jade-rice-3', elementCondition: 'FIRE', elementCount: 2, target: 'chiyan-rice-seed', baseChance: 1.0, hasDice: false },
   { source: 'white-jade-rice-3', elementCondition: 'FIRE', otherCondition: 'ADJACENT_BAISHIZHEN', target: 'jiahe-rice-seed', baseChance: 1.0, hasDice: false },
+  { source: 'white-jade-rice-3', elementCondition: 'FIRE', elementCount: 2, target: 'chiyan-rice-seed', baseChance: 1.0, hasDice: false },
 ];
 
 export const BLUEPRINTS: Blueprint[] = [

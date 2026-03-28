@@ -52,6 +52,7 @@ const App: React.FC = () => {
         growth: 0,
         isLocked: false,
         hasCreature: false,
+        appliedElements: { water: 0, sun: 0, fire: 0 }
       };
     })
   );
@@ -68,6 +69,8 @@ const App: React.FC = () => {
     fire: 1,
   });
 
+  const [selectedElement, setSelectedElement] = useState<CreatureType | null>(null);
+
   const [fp, setFp] = useState(500);
   const [kp, setKp] = useState(0);
   const [weather, setWeather] = useState<WeatherType>('SUNNY');
@@ -75,7 +78,20 @@ const App: React.FC = () => {
   const [isGameFinished, setIsGameFinished] = useState(false);
   const [activeTab, setActiveTab] = useState<'FARM' | 'LAB' | 'QUOTA'>('LAB');
   const [inventory, setInventory] = useState<Partial<Record<PlantType, number>>>({
-    'baishizhen-seed-0': 5
+    'baishizhen-seed-0': 10,
+    'baishizhen-seed-1': 1,
+    'baishizhen-seed-2': 1,
+    'baishizhen-seed-3': 1,
+    'yuzhuxu-seed-0': 1,
+    'yuzhuxu-seed-1': 1,
+    'yuzhuxu-seed-2': 1,
+    'yuzhuxu-seed-3': 1,
+    'white-jade-rice-seed-0': 1,
+    'white-jade-rice-seed-1': 1,
+    'white-jade-rice-seed-2': 1,
+    'white-jade-rice-seed-3': 1,
+    'chiyan-rice-seed': 1,
+    'jiahe-rice-seed': 1
   });
   const [completedBlueprints, setCompletedBlueprints] = useState<string[]>([]);
   const [diceState, setDiceState] = useState<DiceState>({
@@ -88,9 +104,25 @@ const App: React.FC = () => {
   });
   const [isBackpackOpen, setIsBackpackOpen] = useState(false);
   const [footerActiveTiers, setFooterActiveTiers] = useState<Record<string, number>>({});
+  const [goldenFinger, setGoldenFinger] = useState(false);
 
   // Discovery system
-  const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>(['baishizhen-seed-0']);
+  const [discoveredCrops, setDiscoveredCrops] = useState<PlantType[]>([
+    'baishizhen-seed-0',
+    'baishizhen-seed-1',
+    'baishizhen-seed-2',
+    'baishizhen-seed-3',
+    'yuzhuxu-seed-0',
+    'yuzhuxu-seed-1',
+    'yuzhuxu-seed-2',
+    'yuzhuxu-seed-3',
+    'white-jade-rice-seed-0',
+    'white-jade-rice-seed-1',
+    'white-jade-rice-seed-2',
+    'white-jade-rice-seed-3',
+    'chiyan-rice-seed',
+    'jiahe-rice-seed'
+  ]);
   
   const unlockedCrops = useMemo(() => {
     // Return discovered crops and anything currently in inventory
@@ -204,6 +236,29 @@ const App: React.FC = () => {
     const tile = tiles.find(t => t.id === id);
     if (!tile) return;
 
+    // Element Application Mode
+    if (selectedElement) {
+      const invKey = selectedElement.toLowerCase() as keyof ElementInventory;
+      if (elementInventory[invKey] > 0) {
+        setElementInventory(prev => ({ ...prev, [invKey]: prev[invKey] - 1 }));
+        setTiles(prev => prev.map(t => 
+          t.id === id ? { 
+            ...t, 
+            appliedElements: { 
+              ...t.appliedElements!, 
+              [invKey]: (t.appliedElements![invKey] || 0) + 1 
+            } 
+          } : t
+        ));
+      } else {
+        alert(`你没有足够的${selectedElement}元素。`);
+      }
+      return;
+    }
+
+    // Planting Mode
+    if (tile.plantType) return; // Cannot plant over existing crop
+
     // Check if we have the seed
     if ((inventory[selectedPlant] || 0) <= 0) {
       alert(`你没有足够的【${PLANTS[selectedPlant].name}】。`);
@@ -251,48 +306,63 @@ const App: React.FC = () => {
     if (tile && tile.plantType) {
       const plantType = tile.plantType;
 
-      // Check for upgrade rules
-
-      const rule = UPGRADE_RULES.find(r => 
-        r.source === plantType && 
-        (!r.landCondition || r.landCondition === tile.soilType)
-      );
-
-      if (rule && rule.hasDice) {
-        // Trigger dice roll
-        setDiceState({
-          isVisible: true,
-          value: null,
-          targetTileId: id,
-          baseChance: rule.baseChance,
-          upgradeTarget: rule.target,
-          isRolling: false
-        });
-        return;
+      // Golden Finger: Cheat to get next level every time
+      if (goldenFinger) {
+        const rule = UPGRADE_RULES.find(r => r.source === plantType);
+        if (rule) {
+          finalizeHarvest(id, rule.target);
+          return;
+        }
       }
+      
+      // Normal Check for upgrade rules
+      const rules = UPGRADE_RULES.filter(r => r.source === plantType);
 
-      // No dice rule, check for 100% upgrade (like special rice)
-      if (rule && !rule.hasDice) {
-         // Some rules might have additional conditions like element count or adjacency
-         // For now, if it matches source and land, and has no dice, we check other conditions
-         let conditionMet = true;
-         if (rule.otherCondition === 'ADJACENT_BAISHIZHEN') {
-            const neighbors = tiles.filter(t => 
-              Math.abs(t.x - tile.x) + Math.abs(t.y - tile.y) === 1
-            );
-            conditionMet = neighbors.some(n => n.plantType?.startsWith('baishizhen'));
-         }
-         
-         if (conditionMet) {
+      for (const rule of rules) {
+        let conditionMet = true;
+
+        // Check land condition
+        if (rule.landCondition && rule.landCondition !== tile.soilType) conditionMet = false;
+
+        // Check element condition and count (from APPLIED elements)
+        if (rule.elementCondition) {
+          const key = rule.elementCondition.toLowerCase() as keyof ElementInventory;
+          if ((tile.appliedElements?.[key] || 0) < (rule.elementCount || 1)) conditionMet = false;
+        }
+
+        // Check other conditions (like adjacency)
+        if (rule.otherCondition === 'ADJACENT_BAISHIZHEN') {
+          const neighbors = tiles.filter(t => 
+            Math.abs(t.x - tile.x) + Math.abs(t.y - tile.y) === 1
+          );
+          if (!neighbors.some(n => n.plantType?.startsWith('baishizhen'))) conditionMet = false;
+        }
+
+        if (conditionMet) {
+          if (rule.hasDice) {
+            // Trigger dice roll
+            setDiceState({
+              isVisible: true,
+              value: null,
+              targetTileId: id,
+              baseChance: rule.baseChance,
+              upgradeTarget: rule.target,
+              isRolling: false
+            });
+            return;
+          } else {
+            // 100% upgrade (Special Rice)
             finalizeHarvest(id, rule.target);
             return;
-         }
+          }
+        }
       }
 
       // Default 100% harvest: product + same-level seed
       finalizeHarvest(id);
     }
   };
+
 
   const finalizeHarvest = (tileId: number, upgradeSeed?: PlantType) => {
     const tile = tiles.find(t => t.id === tileId);
@@ -517,6 +587,12 @@ const App: React.FC = () => {
               <button key={tab} onClick={() => setActiveTab(tab as any)} className={`px-6 py-1.5 rounded-full text-[10px] font-black uppercase transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-lg' : 'text-slate-400 hover:text-white'}`}>{tab === 'FARM' ? 'Mirror Earth' : tab === 'LAB' ? 'Brick Farm' : '物资申领'}</button>
             ))}
           </nav>
+          <button 
+            onClick={() => setGoldenFinger(!goldenFinger)}
+            className={`px-6 py-2 rounded-full border text-xs font-black uppercase transition-all ${goldenFinger ? 'bg-yellow-500 border-yellow-400 text-slate-950 shadow-[0_0_15px_rgba(234,179,8,0.5)]' : 'bg-slate-800 border-slate-700 text-slate-500'}`}
+          >
+            Golden Finger: {goldenFinger ? 'ON' : 'OFF'}
+          </button>
           <button onClick={cycleWeather} className={`px-6 py-2 rounded-full border border-slate-700 text-xs font-black uppercase transition-all bg-slate-800/50 ${weather === 'SUNNY' ? 'text-orange-400' : 'text-blue-400'}`}>天气: {weather}</button>
         </div>
       </header>
@@ -539,7 +615,8 @@ const App: React.FC = () => {
                   progress: tile.growth,
                   hasCreature: tile.hasCreature,
                   creatureType: tile.creatureType,
-                  lastSpawnedAt: tile.lastSpawnedAt
+                  lastSpawnedAt: tile.lastSpawnedAt,
+                  appliedElements: tile.appliedElements
                 };
                 return (
                   <Tile 
@@ -676,9 +753,15 @@ const App: React.FC = () => {
         <div className="flex-1 flex space-x-5 overflow-x-auto custom-scrollbar pb-2 items-center pr-10">
           <div className="flex flex-col space-y-2 mr-4 min-w-[150px]">
              <div className="text-[9px] font-black text-blue-400 uppercase">资源 & 元素 RESOURCES</div>
-             <ResourceMini label="💧" value={resources.water} color="bg-blue-500" count={elementInventory.water} />
-             <ResourceMini label="☀️" value={resources.sunlight} color="bg-yellow-500" count={elementInventory.sun} />
-             <ResourceMini label="🔥" value={resources.fertilizer} color="bg-orange-500" count={elementInventory.fire} />
+             <div onClick={() => setSelectedElement(selectedElement === 'WATER' ? null : 'WATER')} className={`cursor-pointer transition-all ${selectedElement === 'WATER' ? 'ring-2 ring-blue-500 rounded-lg p-1 bg-blue-500/10' : ''}`}>
+               <ResourceMini label="💧" value={resources.water} color="bg-blue-500" count={elementInventory.water} />
+             </div>
+             <div onClick={() => setSelectedElement(selectedElement === 'SUN' ? null : 'SUN')} className={`cursor-pointer transition-all ${selectedElement === 'SUN' ? 'ring-2 ring-yellow-500 rounded-lg p-1 bg-yellow-500/10' : ''}`}>
+               <ResourceMini label="☀️" value={resources.sunlight} color="bg-yellow-500" count={elementInventory.sun} />
+             </div>
+             <div onClick={() => setSelectedElement(selectedElement === 'FIRE' ? null : 'FIRE')} className={`cursor-pointer transition-all ${selectedElement === 'FIRE' ? 'ring-2 ring-orange-500 rounded-lg p-1 bg-orange-500/10' : ''}`}>
+               <ResourceMini label="🔥" value={resources.fertilizer} color="bg-orange-500" count={elementInventory.fire} />
+             </div>
           </div>
 
           <div className="w-[2px] h-20 bg-white/5 rounded-full mx-2 shrink-0"></div>
